@@ -1,22 +1,32 @@
 import express from 'express';
 import EndpointGenerator from './endpointGenerator/endpointGenerator.js';
 import * as path from 'path';
+import { loadConfig } from './configLoader/configLoader.js';
 
 export const app = express();
-const port = 3000;
-const dirPath = './bff_functions';
-const endpoints = './endpoints/endpoints.js';
 
 (async () => {
-  const endpointGenerator = await EndpointGenerator.create(dirPath, path.resolve(endpoints));
+  const config = await loadConfig();
 
-  const router = await endpointGenerator.getRouter();
-
-  if (router) {
-    app.use('/_api', router);
+  if (config == undefined || config.api_folders.length === 0) {
+    console.error('autoapi.config not present or has no api_folders present');
+    return 1;
   }
 
-  app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`);
-  });
+  for (const apiFolder of config.api_folders) {
+    const endpointGenerator = await EndpointGenerator.create(apiFolder.directory, path.resolve(config.endpointFolder, apiFolder.directory.replace('./', '') + '.js'));
+
+    const router = await endpointGenerator.getRouter();
+
+    if (router === undefined) {
+      console.warn('router not valid, skipping', `/${apiFolder.api_slug}`);
+      continue;
+    }
+
+    app.use(`/${apiFolder.api_slug}`, router); 
+  }
+
+  app.listen(config.port, () => {
+    console.log(`Example app listening on port ${config.port}`); 
+  });  
 })();

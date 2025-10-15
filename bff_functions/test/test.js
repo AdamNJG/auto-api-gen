@@ -1,10 +1,9 @@
-import { HttpMethod } from "../../src/endpointGenerator/types";
 
-export function handler(req, res) {
-    res.send("this is /test/test");
+export function handler (req, res) {
+  res.send(req.method);
 }
 
 export const config = {
-    httpMethod: 'post',
-    endpoints: []
-}
+  httpMethod: 'post',
+  middleware: []
+};

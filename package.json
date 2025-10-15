@@ -11,7 +11,7 @@
     "dev": "concurrently \"tsc --watch\" \"nodemon --watch temp temp/index.js\"",
     "test": "vitest run --coverage",
     "test:mutation": "npx stryker run && rimraf .stryker-tmp",
-    "clean": "rimraf temp && rimraf dist && rimraf reports && rimraf coverage"
+    "clean": "rimraf temp && rimraf dist && rimraf reports && rimraf coverage && rimraf .stryker-tmp"
   },
   "keywords": [],
   "author": "",

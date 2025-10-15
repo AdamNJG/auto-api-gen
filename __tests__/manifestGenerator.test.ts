@@ -30,9 +30,31 @@ describe('Manifest Generator', () => {
     expect(manifest.endpoints).toStrictEqual(bff_invalid_config_endpoints);
     expect(errorMock.mock.calls[0][0]).toContain(`Failed to parse `);
   });
+
+  test('create manifest', async () => {
+    const babelMock = vi.spyOn(global as any, 'eval').mockImplementation(() => {
+      throw new Error('eval failed!');
+    });
+    await createManifest('./__tests__/test_bff_invalid_config');
+
+    expect(errorMock.mock.calls[0][0]).toContain(`eval failed!`);
+    babelMock.mockRestore();
+  });
 });
 
-const bff_test_endpoints: File[] = [                                                                                                                
+const bff_test_endpoints: File[] = [            
+  {
+    name: 'patch.js',
+    route: '/default/patch',
+    path: '__tests__/test_bff_config/default/patch.js',
+    handler: 'function default_patch_js(req, res) {\n  res.send("this is /default/patch");\n}',                                                                     
+    config: {
+      httpMethod: HttpMethod.PATCH,
+      middleware: [],
+      handlerName: 'default_patch_js',
+      isHandlerDefaultExport: true
+    }            
+  },                                                           
   {                                                                                                              
     name: 'index.js',                                                                                            
     route: '/',                                                                                                  
@@ -43,7 +65,8 @@ const bff_test_endpoints: File[] = [
     config: {
       httpMethod: HttpMethod.POST,
       middleware: [],
-      handlerName: 'test_bff_config_index_js'
+      handlerName: 'test_bff_config_index_js',
+      isHandlerDefaultExport: false
     }                                                                                           
   },                                                                                                             
   {
@@ -54,7 +77,8 @@ const bff_test_endpoints: File[] = [
     config: {
       httpMethod: HttpMethod.PUT,
       middleware: [],
-      handlerName: 'test_index_js'
+      handlerName: 'test_index_js',
+      isHandlerDefaultExport: false
     }            
   },
   {
@@ -65,7 +89,8 @@ const bff_test_endpoints: File[] = [
     config: {
       httpMethod: HttpMethod.PATCH,
       middleware: [],
-      handlerName: 'test_test_js'
+      handlerName: 'test_test_js',
+      isHandlerDefaultExport: false
     }            
   }
 ];
@@ -81,7 +106,8 @@ const bff_invalid_config_endpoints: File[] = [
     config: {
       httpMethod: HttpMethod.GET,
       middleware: [],
-      handlerName: 'test_bff_invalid_config_index_js'
+      handlerName: 'test_bff_invalid_config_index_js',
+      isHandlerDefaultExport: false
     }
   }
 ];

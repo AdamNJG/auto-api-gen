@@ -10,6 +10,7 @@ export type Config = {
   httpMethod: HttpMethod;
   middleware: string[];
   handlerName: string;
+  isHandlerDefaultExport: boolean;
 }
 
 export enum HttpMethod {

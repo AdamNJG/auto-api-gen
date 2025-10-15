@@ -11,10 +11,15 @@ export type ControllerManifest = {
   endpoints: File[];
 };
 
-type ParseEndpointResult = {
+type ParsedEndpoint = {
   handler: string;
   config: Config;
 }
+
+type ParseEndpointResult = {
+  success: true;
+  endpoint: ParsedEndpoint
+} | { success: false; }
 
 export async function createManifest (dirPath: string) : Promise<ControllerManifest> {
   if (!fs.existsSync(dirPath)) return {
@@ -48,13 +53,13 @@ async function mapEntry (entry: string, currentPath: string, url: string = '') :
   } else {
     const endpointResult = parseEndpointFile(fullPath);
     
-    if (endpointResult.handler) {
+    if (endpointResult.success) {
       files.push({
         name: entry,
         route: url.replace('index.js', '').replace('.js', ''),
         path: fullPath.replace(/\\/g, '/'),
-        config: endpointResult.config,
-        handler: endpointResult.handler
+        config: endpointResult.endpoint.config,
+        handler: endpointResult.endpoint.handler
       });
     }
   }
@@ -66,21 +71,15 @@ function parseEndpointFile (filePath: string): ParseEndpointResult {
   const content = fs.readFileSync(filePath, 'utf-8');
   let ast;
   try {
-    ast = parse(content, { sourceType: 'module' });
+    ast = parse(content, { sourceType: 'module', plugins: ['typescript'] });
   } catch (error) {
     console.error(`Failed to parse ${filePath}: ${error}`);
-    return {
-      handler: '',
-      config: {
-        httpMethod: HttpMethod.GET,
-        middleware: [],
-        handlerName: ''
-      }
-    };
+    return { success: false };
   }
 
   let handlerNode: t.FunctionDeclaration | null = null;
   let configNode: t.ObjectExpression | null = null;
+  let isDefaultExport: boolean = false;
 
   traverse(ast, {
     ExportNamedDeclaration (path) {
@@ -99,11 +98,14 @@ function parseEndpointFile (filePath: string): ParseEndpointResult {
       if (path.node.declaration?.type === 'FunctionDeclaration' &&
           path.node.declaration.id?.name === 'handler') {
         handlerNode = path.node.declaration;
+        isDefaultExport = true;
       }
     }
   });
 
-  if (!handlerNode) throw new Error('No handler found');
+  if (!handlerNode) return {
+    success: false
+  };
 
   const safeHandlerNode = handlerNode as t.FunctionDeclaration;
 
@@ -111,33 +113,39 @@ function parseEndpointFile (filePath: string): ParseEndpointResult {
   safeHandlerNode.id!.name = functionName;
 
   return {
-    handler: generate(safeHandlerNode).code,
-    config: parseConfig(configNode, functionName)
+    success: true,
+    endpoint: {
+      handler: generate(safeHandlerNode).code,
+      config: parseConfig(configNode, functionName, isDefaultExport)
+    }
   };
 }
 
-function parseConfig (configNode: t.ObjectExpression | null, handlerName: string) : Config {
+function parseConfig (configNode: t.ObjectExpression | null, handlerName: string, isHandlerDefaultExport: boolean) : Config {
   if (configNode) {
     try {
       const cfg = eval('(' + generate(configNode).code + ')') as Partial<Config>;
       return {
         httpMethod: cfg.httpMethod ?? HttpMethod.GET,
         middleware: cfg.middleware ?? [],
-        handlerName: handlerName
+        handlerName: handlerName,
+        isHandlerDefaultExport
       };
     } catch (error) {
       console.error(`failed to evaluate config: ${error}`);
       return {
         httpMethod: HttpMethod.GET,
         middleware: [],
-        handlerName: handlerName
+        handlerName: handlerName,
+        isHandlerDefaultExport
       };
     }
   } else {
     return {
       httpMethod: HttpMethod.GET,
       middleware: [],
-      handlerName: handlerName
+      handlerName: handlerName,
+      isHandlerDefaultExport
     };
   }
 }

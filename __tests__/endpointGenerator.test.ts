@@ -3,7 +3,7 @@ import EndpointGenerator from '../src/endpointGenerator/endpointGenerator';
 import { IRoute, NextFunction, Request, Response } from 'express';
 import { rm } from 'fs/promises';
 
-describe('stuff', () => {
+describe('endpoint generator', () => {
   const endpointBasePath = './__tests__/endpoints';
   let errorMock: ReturnType<typeof vi.spyOn>;
   let warnMock: ReturnType<typeof vi.spyOn>;
@@ -34,11 +34,11 @@ describe('stuff', () => {
       throw Error('router undefined');
     }
 
-    expectRoute(router.stack[0], '/', 'get', 'this is the base route');
+    await expectRoute(router.stack[0], '/', 'get', 'this is the base route');
 
-    expectRoute(router.stack[1], '/test/', 'get', 'this is /test/');
+    await expectRoute(router.stack[1], '/test/', 'get', 'this is /test/');
 
-    expectRoute(router.stack[2], '/test/test', 'get', 'this is /test/test');
+    await expectRoute(router.stack[2], '/test/test', 'get', 'this is /test/test');
 
     expect(logMock).toBeCalledWith(`generated endpoints: ${endpointPath}`);
 
@@ -58,16 +58,18 @@ describe('stuff', () => {
       throw Error('router undefined');
     }
 
-    expectRoute(router.stack[0], '/', 'post', 'this is the base route');
+    await expectRoute(router.stack[0], '/default/patch', 'patch', 'this is /default/patch');
 
-    expectRoute(router.stack[1], '/test/', 'put', 'this is /test/');
+    await expectRoute(router.stack[1], '/', 'post', 'this is the base route');
 
-    expectRoute(router.stack[2], '/test/test', 'patch', 'this is /test/test');
+    await expectRoute(router.stack[2], '/test/', 'put', 'this is /test/');
+
+    await expectRoute(router.stack[3], '/test/test', 'patch', 'this is /test/test');
 
     await deleteFile(endpointPath);
   });
 
-  test('js handlers present with invalid configs, creates valid router with different methods', async () => {
+  test('js handlers present, invalid js file, other endpoints present', async () => {
     const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
     const testBffPath = '__tests__/test_bff_invalid_config';
@@ -80,7 +82,9 @@ describe('stuff', () => {
       throw Error('router undefined');
     }
 
-    expectRoute(router.stack[0], '/', 'get', 'this is the base route');
+    expect(errorMock.mock.calls[0][0]).toContain('Failed to parse');
+
+    await expectRoute(router.stack[0], '/', 'get', 'this is the base route');
 
     await deleteFile(endpointPath);
   });

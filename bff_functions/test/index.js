@@ -1,4 +1,4 @@
 
-export function handler(req, res) {
+export default function handler(req, res) {
     res.send("this is /test");
 }

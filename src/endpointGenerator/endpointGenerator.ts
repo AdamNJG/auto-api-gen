@@ -33,10 +33,8 @@ export default class EndpointGenerator {
     const routerDefinitions = manifest.endpoints.map(EndpointGenerator.getRouterDefinition)
       .join(';\n') + ';';
 
-    const gen = `
-import express from 'express';
-
-${manifest.endpoints.map(e => e.handler).join('\n')}
+    const gen = `import express from 'express';
+${manifest.endpoints.map(this.mapHandlerImport).join('\n')}
 
 const router = express.Router();
 
@@ -67,6 +65,14 @@ export default router;
       console.error(`No router found in ${this.outputPath}:`, error);
       return undefined;
     }
+  }
+
+  mapHandlerImport (endpoint: File) {
+    if (endpoint.config.isHandlerDefaultExport) {
+      return `import ${endpoint.config.handlerName} from '../${endpoint.path}'`;
+    } 
+
+    return `import {handler as ${endpoint.config.handlerName}} from '../${endpoint.path}'`;
   }
 }
 

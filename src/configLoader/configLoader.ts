@@ -1,9 +1,8 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { AutoApiConfig } from './types.js';
-import { Module } from 'module';
 import ts from 'typescript';
-import vm from 'vm';
+import { pathToFileURL } from 'url';
 
 export async function loadConfig (): Promise<AutoApiConfig | undefined> {
   const candidates = ['ts', 'js', 'json', 'cjs', 'mjs'];
@@ -25,9 +24,9 @@ export async function loadConfig (): Promise<AutoApiConfig | undefined> {
       case '.js':
       case '.cjs':
       case '.mjs':
-        return (await import(filePath)).default as AutoApiConfig;
+        return await importJsConfig(filePath);
       case '.ts':
-        return importTsConfig(filePath) as AutoApiConfig;
+        return importTsConfig(filePath);
       default:
         return undefined;
       }
@@ -35,26 +34,36 @@ export async function loadConfig (): Promise<AutoApiConfig | undefined> {
   }
 }
 
-function importTsConfig (file: string) {
-  const tsCode = fs.readFileSync(file, 'utf8');
+async function importJsConfig (filePath: string): Promise<AutoApiConfig> {
+
+  const mod = await import(filePath);
+
+  const config: AutoApiConfig =
+  (mod as any).config ??  
+  (mod as any).default ?? 
+  (mod as any);            
+
+  return config;
+}
+
+async function importTsConfig (filePath: string): Promise<AutoApiConfig> {
+  const tsCode = fs.readFileSync(filePath, 'utf8');
 
   const jsCode = ts.transpileModule(tsCode, {
     compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
+      module: ts.ModuleKind.ES2020,
       target: ts.ScriptTarget.ES2020,
       esModuleInterop: true
-    },
-    fileName: path.basename(file)
+    }
   }).outputText;
-  return loadTsModuleCjs(jsCode, file) as AutoApiConfig;
-}
 
-function loadTsModuleCjs (jsCode: string, filename: string) : AutoApiConfig {
-  const m = { exports: {} };
-  const wrapper = Module.wrap(jsCode); // Wraps code in function(exports, require, module, __filename, __dirname)
-  const script = new vm.Script(wrapper, { filename });
-  const func = script.runInThisContext();
-  func(m.exports, require, m, filename, path.dirname(filename));
-  const exported = m.exports as any;
-  return (exported.default ?? exported) as AutoApiConfig;
+  const tempFile = path.join(path.dirname(filePath), '__temp_config__.mjs');
+  fs.writeFileSync(tempFile, jsCode, 'utf8');
+
+  try {
+    const mod = await import(pathToFileURL(tempFile).href);
+    return (mod as any).config ?? (mod as any).default ?? (mod as any);
+  } finally {
+    fs.unlinkSync(tempFile);
+  }
 }
