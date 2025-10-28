@@ -1,0 +1,1 @@
+export type { AutoApiConfig } from './configLoader/types.js';

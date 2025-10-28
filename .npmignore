@@ -1,0 +1,9 @@
+src/
+scripts/
+__tests__/
+tsconfig*.json
+eslint.config.ts
+stryker.config.json
+autoapi.config.ts
+.github/
+vitest.config.ts
