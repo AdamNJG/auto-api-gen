@@ -23,7 +23,8 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, checking endpoints', async () => {
-    await generateServer('./__tests__/configs/server');
+    const result = await generateServer('./__tests__/configs/server');
+    expect(result.success).toBe(true);
 
     expect(fs.existsSync(path.resolve(cwd(), './generated/__tests__/test_bff.js'))).toBeTruthy();
     expect(fs.existsSync(path.resolve(cwd(), './generated/index.js'))).toBeTruthy();
@@ -55,25 +56,24 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, checking file structure', async () => {
-    await generateServer('./__tests__/configs/server');
+    const result = await generateServer('./__tests__/configs/server');
+    expect(result.success).toBe(true);
 
     expect(fs.existsSync(path.resolve(cwd(), './generated/index.js'))).toBeTruthy();
 
     const indexPath = path.resolve('./generated/index.js');
     const indexContent = await fs.promises.readFile(indexPath, 'utf-8');
+    const expectedIndexContent = await fs.promises.readFile('./__tests__/generatedOutputs/index.js', 'utf-8');
 
-    expect(indexContent).toContain(`import express from 'express';`);
+    // styker adds @ts-nocheck to generated output, the replace is to bypass equality issues!
+    expect(indexContent).toEqual(expectedIndexContent.replace(/^\/\/\s*@ts-nocheck\s*\n/, ''));
 
-    expect(indexContent).toContain(`import test_bff from './__tests__/test_bff.js';`);
-
-    expect(indexContent).toContain(`app.use('/_api', test_bff);`);
-
-    expect(indexContent).toContain(`app.listen(1234, () => {`);
     await deleteGeneratedFiles();
   });
 
   test('no config file, does not continue to generate the server', async () => {
-    await generateServer('./src');
+    const result = await generateServer('./src');
+    expect(result.success).toBe(false);
 
     expect(errorMock).toBeCalledWith('No config found, please create an autoapi.config, check the documentation for details');
 
@@ -83,7 +83,8 @@ describe('serverGenerator tests', () => {
   });
 
   test('no config file, does not continue to generate the server', async () => {
-    await generateServer('./__tests__/configs/server/no_files');
+    const result = await generateServer('./__tests__/configs/server/no_files');
+    expect(result.success).toBe(false);
 
     expect(errorMock).toBeCalledWith(`No valid api files able to be created from the config and file system, exiting creation`);
 

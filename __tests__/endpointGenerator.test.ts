@@ -4,6 +4,7 @@ import { rm } from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import generateEndpoints from '../src/endpointGenerator/endpointGenerator';
+import * as fs from 'fs/promises';
 
 describe('endpoint generator', () => {
   const endpointBasePath = './__tests__/endpoints';
@@ -28,7 +29,8 @@ describe('endpoint generator', () => {
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
     const testBffPath = '__tests__/test_bff';
 
-    await generateEndpoints(`./${testBffPath}`, endpointPath);
+    const result = await generateEndpoints(`./${testBffPath}`, endpointPath);
+    expect(result.success).toBe(true);
    
     const router = await getRouter(endpointPath);
     if (!router) {
@@ -52,7 +54,8 @@ describe('endpoint generator', () => {
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
     const testBffPath = '__tests__/test_bff_config';
 
-    await generateEndpoints(`./${testBffPath}`, endpointPath);
+    const result = await generateEndpoints(`./${testBffPath}`, endpointPath);
+    expect(result.success).toBe(true);
 
     const router = await getRouter(endpointPath);
     if (!router) {
@@ -71,12 +74,30 @@ describe('endpoint generator', () => {
     await deleteFile(endpointPath);
   });
 
+  test('js handlers present with configs, creates matching router', async () => {
+    const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
+    const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
+    const testBffPath = '__tests__/test_bff_config';
+
+    const result = await generateEndpoints(`./${testBffPath}`, endpointPath);
+    expect(result.success).toBe(true);
+
+    const gennedContent = await fs.readFile(endpointPath, 'utf-8');
+    const expectedGennedContent = await fs.readFile('./__tests__/generatedOutputs/test_bff.js', 'utf-8');
+
+    // styker adds @ts-nocheck to generated output, the replace is to bypass equality issues!
+    expect(gennedContent).toEqual(expectedGennedContent.replace(/^\/\/\s*@ts-nocheck\s*\n/, ''));
+
+    await deleteFile(endpointPath);
+  });
+
   test('js handlers present, invalid js file, other endpoints present', async () => {
     const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
     const testBffPath = '__tests__/test_bff_invalid_config';
 
-    await generateEndpoints(`./${testBffPath}`, endpointPath);
+    const result = await generateEndpoints(`./${testBffPath}`, endpointPath);
+    expect(result.success).toBe(true);
 
     const router = await getRouter(endpointPath);
     if (!router) {
@@ -94,7 +115,9 @@ describe('endpoint generator', () => {
   test('no js handlers present, creates empty manifest', async () => {
     const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
-    await generateEndpoints(`./_no_files`, endpointPath);
+
+    const result = await generateEndpoints(`./_no_files`, endpointPath);
+    expect(result.success).toBe(false);
 
     const router = await getRouter(endpointPath);
 
