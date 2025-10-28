@@ -1,0 +1,9 @@
+const config = {
+  api_folders: [{
+    directory: 'stuff',
+    api_slug: '_api'
+  }],
+  port: 1234
+}; 
+
+export default config;

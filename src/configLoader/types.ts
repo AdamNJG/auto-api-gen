@@ -1,6 +1,5 @@
 export type AutoApiConfig = {
   api_folders: ApiFolder[];
-  endpointFolder: string;
   port: number;
 }
 

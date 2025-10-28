@@ -4,9 +4,9 @@ import { AutoApiConfig } from './types.js';
 import ts from 'typescript';
 import { pathToFileURL } from 'url';
 
-export async function loadConfig (): Promise<AutoApiConfig | undefined> {
+export async function loadConfig (configOverride: string | undefined = undefined): Promise<AutoApiConfig | undefined> {
   const candidates = ['ts', 'js', 'json', 'cjs', 'mjs'];
-  const projectRoot = process.cwd();
+  const projectRoot = configOverride ?? process.cwd();
 
   for (const extension of candidates) {
 
@@ -14,7 +14,6 @@ export async function loadConfig (): Promise<AutoApiConfig | undefined> {
     if (fs.existsSync(filePath)) {
 
       const ext = path.extname(filePath).toLowerCase();
-
       switch (ext) {
       case '.json':
       {
@@ -27,11 +26,10 @@ export async function loadConfig (): Promise<AutoApiConfig | undefined> {
         return await importJsConfig(filePath);
       case '.ts':
         return importTsConfig(filePath);
-      default:
-        return undefined;
       }
     }
   }
+  return undefined;
 }
 
 async function importJsConfig (filePath: string): Promise<AutoApiConfig> {

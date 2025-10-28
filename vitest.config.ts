@@ -14,6 +14,10 @@ export default defineConfig({
         '__tests__/configs',
         'endpoints'
       ]
-    }
+    },
+    exclude: [
+      '.stryker-tmp',
+      'node_modules'
+    ]
   }
 });

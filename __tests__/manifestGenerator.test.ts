@@ -1,11 +1,11 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, test, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { createManifest } from '../src/endpointGenerator/manifestGenerator';
 import { File, HttpMethod } from '../src/endpointGenerator/types';
 
 describe('Manifest Generator', () => {
-  let errorMock: ReturnType<typeof vi.spyOn>;
-  let warnMock: ReturnType<typeof vi.spyOn>;
-  let logMock: ReturnType<typeof vi.spyOn>;
+  let errorMock: Mock<(...args: any[]) => void>;
+  let warnMock: Mock<(...args: any[]) => void>;
+  let logMock: Mock<(...args: any[]) => void>;
 
   beforeEach(() => {
     errorMock = vi.spyOn(console, 'error').mockImplementation(() => {});

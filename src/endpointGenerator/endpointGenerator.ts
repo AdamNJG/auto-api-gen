@@ -2,39 +2,20 @@ import { File } from './types.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { ControllerManifest, createManifest } from './manifestGenerator.js';
-import { pathToFileURL } from 'url';
-import { Router } from 'express';
 
-export default class EndpointGenerator {
-  private sourceDirectory: string;
-  private outputPath: string;
+export default async function generateEndpoints (sourceDirectory: string, outputPath: string) {
+  const manifest: ControllerManifest = await createManifest(sourceDirectory);
 
-  private constructor (dirPath: string, outputFilePath: string) { 
-    this.sourceDirectory = dirPath;
-    this.outputPath = outputFilePath;
+  if (manifest.endpoints.length == 0) {
+    console.error(`No endpoints found to map for ${sourceDirectory}`);
+    return;
   }
 
-  static async create (dirPath: string, outputFilePath: string) : Promise<EndpointGenerator> {
-    const endpointGenerator = new EndpointGenerator(dirPath, outputFilePath); 
+  const routerDefinitions = manifest.endpoints.map(getRouterDefinition)
+    .join(';\n') + ';';
 
-    await endpointGenerator.generateEndpoints();
-
-    return endpointGenerator;
-  }
-
-  async generateEndpoints () {
-    const manifest: ControllerManifest = await createManifest(this.sourceDirectory);
-
-    if (manifest.endpoints.length == 0) {
-      console.error(`No endpoints found to map for ${this.sourceDirectory}`);
-      return;
-    }
-
-    const routerDefinitions = manifest.endpoints.map(EndpointGenerator.getRouterDefinition)
-      .join(';\n') + ';';
-
-    const gen = `import express from 'express';
-${manifest.endpoints.map(this.mapHandlerImport).join('\n')}
+  const gen = `import express from 'express';
+${manifest.endpoints.map(e => mapHandlerImport(e, outputPath)).join('\n')}
 
 const router = express.Router();
 
@@ -43,36 +24,27 @@ ${routerDefinitions}
 export default router;
     `;
 
-    await fs.mkdir(path.dirname(this.outputPath), { recursive: true });
-    await fs.writeFile(this.outputPath, gen, 'utf8');
-    console.log(`generated endpoints: ${this.outputPath}`);
-  }
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, gen, 'utf8');
+  console.log(`generated endpoints: ${outputPath}`);
+}
   
-  static getRouterDefinition (endpoint: File): string {
-    return `router.${endpoint.config.httpMethod.toLowerCase()}('${endpoint.route}', ${endpoint.config.handlerName})`;
-  }
+function getRouterDefinition (endpoint: File): string {
+  return `router.${endpoint.config.httpMethod.toLowerCase()}('${endpoint.route}', ${endpoint.config.handlerName})`;
+}
 
-  async getRouter (): Promise<Router | undefined> {
-    const absPath = path.resolve(this.outputPath);
+function mapHandlerImport (endpoint: File, outputPath: string) {
+  const routerDir = path.dirname(outputPath);
+  const handlerPath = path.resolve(endpoint.path);
 
-    const fileUrl = pathToFileURL(absPath).href;
-    try {
-      const router = await import(fileUrl);
-      if (router.default instanceof Router) {
-        return router.default;
-      }
-    } catch (error) {
-      console.error(`No router found in ${this.outputPath}:`, error);
-      return undefined;
-    }
-  }
+  let relativePath = path.relative(routerDir, handlerPath).replace(/\\/g, '/');
 
-  mapHandlerImport (endpoint: File) {
-    if (endpoint.config.isHandlerDefaultExport) {
-      return `import ${endpoint.config.handlerName} from '../${endpoint.path}'`;
-    } 
+  if (!relativePath.startsWith('.')) relativePath = './' + relativePath;
 
-    return `import {handler as ${endpoint.config.handlerName}} from '../${endpoint.path}'`;
+  if (endpoint.config.isHandlerDefaultExport) {
+    return `import ${endpoint.config.handlerName} from '${relativePath}'`;
+  } else {
+    return `import {handler as ${endpoint.config.handlerName}} from '${relativePath}'`;
   }
 }
 

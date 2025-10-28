@@ -1,5 +1,6 @@
 node_modules
-temp
+bin
 dist
 coverage
 endpoints
+generated

@@ -1,13 +1,15 @@
-import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest';
-import EndpointGenerator from '../src/endpointGenerator/endpointGenerator';
-import { IRoute, NextFunction, Request, Response } from 'express';
+import { describe, test, expect, afterEach, beforeEach, vi, Mock } from 'vitest';
+import { IRoute, NextFunction, Request, Response, Router } from 'express';
 import { rm } from 'fs/promises';
+import path from 'path';
+import { pathToFileURL } from 'url';
+import generateEndpoints from '../src/endpointGenerator/endpointGenerator';
 
 describe('endpoint generator', () => {
   const endpointBasePath = './__tests__/endpoints';
-  let errorMock: ReturnType<typeof vi.spyOn>;
-  let warnMock: ReturnType<typeof vi.spyOn>;
-  let logMock: ReturnType<typeof vi.spyOn>;
+  let errorMock: Mock<(...args: any[]) => void>;
+  let warnMock: Mock<(...args: any[]) => void>;
+  let logMock: Mock<(...args: any[]) => void>;
 
   beforeEach(() => {
     errorMock = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -26,9 +28,9 @@ describe('endpoint generator', () => {
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
     const testBffPath = '__tests__/test_bff';
 
-    const endpointGenerator = await EndpointGenerator.create(`./${testBffPath}`, endpointPath);
-
-    const router = await endpointGenerator.getRouter();
+    await generateEndpoints(`./${testBffPath}`, endpointPath);
+   
+    const router = await getRouter(endpointPath);
     if (!router) {
       await deleteFile(endpointPath);
       throw Error('router undefined');
@@ -50,9 +52,9 @@ describe('endpoint generator', () => {
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
     const testBffPath = '__tests__/test_bff_config';
 
-    const endpointGenerator = await EndpointGenerator.create(`./${testBffPath}`, endpointPath);
+    await generateEndpoints(`./${testBffPath}`, endpointPath);
 
-    const router = await endpointGenerator.getRouter();
+    const router = await getRouter(endpointPath);
     if (!router) {
       await deleteFile(endpointPath);
       throw Error('router undefined');
@@ -74,9 +76,9 @@ describe('endpoint generator', () => {
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
     const testBffPath = '__tests__/test_bff_invalid_config';
 
-    const endpointGenerator = await EndpointGenerator.create(`./${testBffPath}`, endpointPath);
+    await generateEndpoints(`./${testBffPath}`, endpointPath);
 
-    const router = await endpointGenerator.getRouter();
+    const router = await getRouter(endpointPath);
     if (!router) {
       await deleteFile(endpointPath);
       throw Error('router undefined');
@@ -92,18 +94,24 @@ describe('endpoint generator', () => {
   test('no js handlers present, creates empty manifest', async () => {
     const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
-    const endpointGenerator = await EndpointGenerator.create(`./_no_files`, endpointPath);
+    await generateEndpoints(`./_no_files`, endpointPath);
 
-    const router = await endpointGenerator.getRouter();
+    const router = await getRouter(endpointPath);
 
     expect(router).toBeUndefined();
     expect(errorMock).toHaveBeenCalledWith('No endpoints found to map for ./_no_files');
-    expect(errorMock.mock.calls[1][0]).toContain(`No router found in ${endpointPath}:`);
   });
 });
 
 async function deleteFile (file: string) {
   await rm(file);
+}
+
+async function expectRoute (layer: any, path: string, method: string, expectedBody: any) {
+  const route = layer.route as IRoute;
+  expect(route.path).toBe(path);
+  expect(route.stack[0].method).toBe(method);
+  await checkHandlerFunction(route.stack[0].handle, expectedBody);
 }
 
 async function checkHandlerFunction<T> (fun: (req: Request, res: Response, next: NextFunction) => any, expected: T) {
@@ -123,9 +131,16 @@ async function checkHandlerFunction<T> (fun: (req: Request, res: Response, next:
   expect(body).toBe(expected);
 }
 
-async function expectRoute (layer: any, path: string, method: string, expectedBody: any) {
-  const route = layer.route as IRoute;
-  expect(route.path).toBe(path);
-  expect(route.stack[0].method).toBe(method);
-  await checkHandlerFunction(route.stack[0].handle, expectedBody);
+async function getRouter (outputPath: string): Promise<Router | undefined> {
+  const absPath = path.resolve(outputPath);
+
+  const fileUrl = pathToFileURL(absPath).href;
+  try {
+    const router = await import(fileUrl);
+    if (router.default instanceof Router) {
+      return router.default;
+    }
+  } catch {
+    return undefined;
+  }
 }
