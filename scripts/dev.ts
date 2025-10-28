@@ -2,6 +2,7 @@ import { loadConfig } from '../dist/configLoader/configLoader.js';
 import generateServer from '../dist/serverGenerator/serverGenerator.js';
 import chokidar from 'chokidar';
 import { spawn } from 'child_process';
+import debounce from 'lodash.debounce';
 
 export async function runDevProcesses () {
   const config = await loadConfig();
@@ -11,7 +12,11 @@ export async function runDevProcesses () {
     process.exit(1);
   }
 
-  await generateServer();
+  const result = await generateServer();
+
+  if (!result.success) {
+    return;
+  }
 
   let currentProcess: ReturnType<typeof spawn> | null = null;
   const generatedWatcher = chokidar.watch('generated', {
@@ -32,11 +37,17 @@ export async function runDevProcesses () {
     ignoreInitial: true
   });
 
-  apiWatcher.on('all', async (event, pathChanged) => {
-    console.log(`[DEV] ${event} detected in ${pathChanged}. Rebuilding...`);
-    await generateServer();
-  });
+  const rebuildServer = debounce(async () => {
+    console.log('[DEV] Rebuilding server...');
+    const result = await generateServer();
 
+    if (!result.success) {
+      console.error('[DEV] Server generation failed. Fix the error and restart the CLI.');
+      process.exit(1);
+    }
+  }, 300);
+
+  apiWatcher.on('all', rebuildServer);
 }
 
 if (import.meta.url === new URL(process.argv[1], import.meta.url).href) {

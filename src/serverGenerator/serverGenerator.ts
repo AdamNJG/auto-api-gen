@@ -3,30 +3,47 @@ import generateEndpoints from '../endpointGenerator/endpointGenerator.js';
 import path from 'path';
 import * as fs from 'fs/promises';
 import { AutoApiConfig } from '../configLoader/types.js';
-import { RouterMapping } from './types.js';
+import { GenerateServerResult, RouterMapping } from './types.js';
 
-export default async function generateServer (configLocationOverride: string | undefined = undefined) { 
+export default async function generateServer (configLocationOverride: string | undefined = undefined) : Promise<GenerateServerResult> { 
   const config = await loadConfig(configLocationOverride);
   
   if (!config) {
     console.error('No config found, please create an autoapi.config, check the documentation for details');
-    return;
+    return {
+      success: false
+    };
   }
 
   try {
     await fs.mkdir(path.dirname('./generated'), { recursive: true });
   } catch (error) { 
     console.error(error);
-    return;
+    return {
+      success: false
+    };
   }
 
   const routerMappings: Record<string, RouterMapping> = {};
   for (const apiFolder of config.api_folders) {
-    await generateEndpoints(apiFolder.directory, path.join('./generated', apiFolder.directory.replace('./', '') + '.js'));
-    routerMappings[apiFolder.api_slug] = mapRouterImport(apiFolder.directory);
+    const result = await generateEndpoints(apiFolder.directory, path.join('./generated', apiFolder.directory.replace('./', '') + '.js'));
+    if (result.success) {
+      routerMappings[apiFolder.api_slug] = mapRouterImport(apiFolder.directory);
+    }
+
+  }
+
+  if (Object.keys(routerMappings).length === 0) {
+    console.error('No valid api files able to be created from the config and file system, exiting creation');
+    return {
+      success: false
+    };
   }
 
   await generateIndex(routerMappings, config);
+  return {
+    success: true
+  };
 }
 
 function mapRouterImport (routerPath: string): RouterMapping {

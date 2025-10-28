@@ -22,3 +22,7 @@ export enum HttpMethod {
   OPTIONS = 'options',
   HEAD = 'head'
 }
+
+export type GenerateEndpointsResults = {
+  success: boolean;
+}

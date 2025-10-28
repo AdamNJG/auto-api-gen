@@ -81,6 +81,16 @@ describe('serverGenerator tests', () => {
     expect(fs.existsSync(path.resolve(cwd(), './generated/__tests__/test_bff.js'))).toBeFalsy();
     expect(fs.existsSync(path.resolve(cwd(), './generated/index.js'))).toBeFalsy();
   });
+
+  test('no config file, does not continue to generate the server', async () => {
+    await generateServer('./__tests__/configs/server/no_files');
+
+    expect(errorMock).toBeCalledWith(`No valid api files able to be created from the config and file system, exiting creation`);
+
+    expect(fs.existsSync(path.resolve(cwd(), './generated'))).toBeFalsy();
+    expect(fs.existsSync(path.resolve(cwd(), './generated/__tests__/test_bff.js'))).toBeFalsy();
+    expect(fs.existsSync(path.resolve(cwd(), './generated/index.js'))).toBeFalsy();
+  });
 });
 
 async function deleteGeneratedFiles () {

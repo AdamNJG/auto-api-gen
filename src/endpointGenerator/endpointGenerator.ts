@@ -1,14 +1,16 @@
-import { File } from './types.js';
+import { File, GenerateEndpointsResults } from './types.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { ControllerManifest, createManifest } from './manifestGenerator.js';
 
-export default async function generateEndpoints (sourceDirectory: string, outputPath: string) {
+export default async function generateEndpoints (sourceDirectory: string, outputPath: string) : Promise<GenerateEndpointsResults> {
   const manifest: ControllerManifest = await createManifest(sourceDirectory);
 
   if (manifest.endpoints.length == 0) {
     console.error(`No endpoints found to map for ${sourceDirectory}`);
-    return;
+    return {
+      success: false
+    };
   }
 
   const routerDefinitions = manifest.endpoints.map(getRouterDefinition)
@@ -27,6 +29,9 @@ export default router;
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await fs.writeFile(outputPath, gen, 'utf8');
   console.log(`generated endpoints: ${outputPath}`);
+  return {
+    success: true
+  };
 }
   
 function getRouterDefinition (endpoint: File): string {

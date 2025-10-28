@@ -1,19 +1,18 @@
 {
   "name": "auto-api-gen",
   "version": "0.0.1",
-  "description": "",
-  "main": "index.js",
+  "description": "Generate Express APIs automatically from configuration or endpoint files.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
   "bin": {
-    "auto-api": "./bin/entry.js"
+    "auto-api-gen": "./bin/entry.js"
   },
   "scripts": {
     "build:scripts": "tsc -p tsconfig.scripts.json",
     "build:main": "tsc -p tsconfig.project.json",
     "build": "npm run build:main && npm run build:scripts",
-    "watch:ts": "tsc --watch",
-    "watch:endpoints": "cpx \"endpoints/**/*\" \"temp/endpoints\" -w",
-    "dev": "npm run build && npx auto-api dev",
+    "dev": "npx auto-api-gen dev",
     "test": "vitest run --coverage",
     "test:mutation": "npx stryker run && rimraf .stryker-tmp",
     "clean": "rimraf temp && rimraf bin && rimraf dist && rimraf reports && rimraf coverage && rimraf .stryker-tmp"
@@ -26,9 +25,11 @@
     "@babel/parser": "^7.28.5",
     "@babel/traverse": "^7.28.5",
     "@babel/types": "^7.28.5",
+    "@types/lodash.debounce": "^4.0.9",
     "chokidar": "^4.0.3",
     "express": "^5.1.0",
-    "tsc": "2.0.4"
+    "lodash.debounce": "^4.0.8",
+    "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
@@ -55,7 +56,6 @@
     "rimraf": "^6.0.1",
     "rollup": "^4.52.5",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
     "undici-types": "^7.16.0",
     "vitest": "^4.0.4"
   }
