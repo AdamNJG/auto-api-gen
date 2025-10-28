@@ -3,6 +3,8 @@ import generateServer from '../dist/serverGenerator/serverGenerator.js';
 import chokidar from 'chokidar';
 import { spawn } from 'child_process';
 import debounce from 'lodash.debounce';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 
 export async function runDevProcesses () {
   const config = await loadConfig();
@@ -12,10 +14,23 @@ export async function runDevProcesses () {
     process.exit(1);
   }
 
+  if (config.bootstrapDom) {
+    try {
+      require('jsdom');
+    } catch {
+      console.log('jsdom required, installing now!');
+      await awaitSpawn('npm', ['install', 'jsdom'], {
+        shell: true,
+        stdio: 'inherit'
+      });
+      console.log('✅ jsdom installed successfully');
+    }
+  }
+
   const result = await generateServer();
 
   if (!result.success) {
-    return;
+    process.exit(1);
   }
 
   let currentProcess: ReturnType<typeof spawn> | null = null;
@@ -52,4 +67,20 @@ export async function runDevProcesses () {
 
 if (import.meta.url === new URL(process.argv[1], import.meta.url).href) {
   runDevProcesses();
+}
+
+export function awaitSpawn (command: string, args: string[] = [], options: any = {}) {
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, {
+      shell: true,           // ✅ handles npm.cmd on Windows
+      stdio: 'inherit',      // show output directly
+      ...options
+    });
+
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${command} ${args.join(' ')} exited with code ${code}`));
+    });
+  });
 }

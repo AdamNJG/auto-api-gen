@@ -1,6 +1,7 @@
 export type AutoApiConfig = {
   api_folders: ApiFolder[];
   port: number;
+  bootstrapDom?: boolean
 }
 
 type ApiFolder = {
