@@ -12,7 +12,6 @@ export type ControllerManifest = {
 };
 
 type ParsedEndpoint = {
-  handler: string;
   config: Config;
 }
 
@@ -21,7 +20,7 @@ type ParseEndpointResult = {
   endpoint: ParsedEndpoint
 } | { success: false; }
 
-export async function createManifest (dirPath: string) : Promise<ControllerManifest> {
+export async function createManifest (dirPath: string, functionName: string = 'handler') : Promise<ControllerManifest> {
   if (!fs.existsSync(dirPath)) return {
     endpoints: []
   }; 
@@ -30,7 +29,7 @@ export async function createManifest (dirPath: string) : Promise<ControllerManif
   const mappedEntries: File[] = [];
 
   for (const entry of entries) { 
-    mappedEntries.push(...await mapEntry(entry, dirPath));
+    mappedEntries.push(...await mapEntry(entry, dirPath, functionName));
   }
 
   return {
@@ -38,7 +37,7 @@ export async function createManifest (dirPath: string) : Promise<ControllerManif
   };
 }
 
-async function mapEntry (entry: string, currentPath: string, url: string = '') : Promise<File[]> {
+async function mapEntry (entry: string, currentPath: string, functionName: string, url: string = '') : Promise<File[]> {
   const fullPath = path.join(currentPath, entry);
   const stats = fs.statSync(fullPath);
 
@@ -48,18 +47,17 @@ async function mapEntry (entry: string, currentPath: string, url: string = '') :
   if (stats.isDirectory()) {
     const subEntries = fs.readdirSync(fullPath);
     for (const e of subEntries) {
-      files.push(...await mapEntry(e, fullPath, url));
+      files.push(...await mapEntry(e, fullPath, functionName, url));
     }
   } else {
-    const endpointResult = parseEndpointFile(fullPath);
+    const endpointResult = parseEndpointFile(fullPath, functionName);
     
     if (endpointResult.success) {
       files.push({
         name: entry,
-        route: url.replace('index.js', '').replace('.js', ''),
+        route: cleanUrl(url),
         path: fullPath.replace(/\\/g, '/'),
-        config: endpointResult.endpoint.config,
-        handler: endpointResult.endpoint.handler
+        config: endpointResult.endpoint.config
       });
     }
   }
@@ -67,7 +65,15 @@ async function mapEntry (entry: string, currentPath: string, url: string = '') :
   return files;
 }
 
-function parseEndpointFile (filePath: string): ParseEndpointResult {
+function cleanUrl (url: string): string {
+  return url
+    .replace('index.js', '')
+    .replace('index.ts', '')
+    .replace('.js', '')
+    .replace('.ts', '');
+}
+
+function parseEndpointFile (filePath: string, functionName: string): ParseEndpointResult {
   const content = fs.readFileSync(filePath, 'utf-8');
   let ast;
   try {
@@ -84,7 +90,7 @@ function parseEndpointFile (filePath: string): ParseEndpointResult {
   traverse(ast, {
     ExportNamedDeclaration (path) {
       if (path.node.declaration?.type === 'FunctionDeclaration' &&
-          path.node.declaration.id?.name === 'handler') {
+          path.node.declaration.id?.name === functionName) {
         handlerNode = path.node.declaration;
       }
       if (path.node.declaration?.type === 'VariableDeclaration') {
@@ -96,7 +102,7 @@ function parseEndpointFile (filePath: string): ParseEndpointResult {
     },
     ExportDefaultDeclaration (path) {
       if (path.node.declaration?.type === 'FunctionDeclaration' &&
-          path.node.declaration.id?.name === 'handler') {
+          path.node.declaration.id?.name === functionName) {
         handlerNode = path.node.declaration;
         isDefaultExport = true;
       }
@@ -107,16 +113,10 @@ function parseEndpointFile (filePath: string): ParseEndpointResult {
     success: false
   };
 
-  const safeHandlerNode = handlerNode as t.FunctionDeclaration;
-
-  const functionName = getFunctionName(filePath);
-  safeHandlerNode.id!.name = functionName;
-
   return {
     success: true,
     endpoint: {
-      handler: generate(safeHandlerNode).code,
-      config: parseConfig(configNode, functionName, isDefaultExport)
+      config: parseConfig(configNode, getFunctionName(filePath), isDefaultExport)
     }
   };
 }
@@ -132,7 +132,7 @@ function parseConfig (configNode: t.ObjectExpression | null, handlerName: string
         isHandlerDefaultExport
       };
     } catch (error) {
-      console.error(`failed to evaluate config: ${error}`);
+      console.error(`failed to evaluate config, using endpoint defaults: ${error}`);
       return {
         httpMethod: HttpMethod.GET,
         middleware: [],
@@ -160,5 +160,7 @@ function getFunctionName (filePath: string) : string {
   return relevantParts
     .join('_')                          
     .replace(/[^a-zA-Z0-9_$]/g, '_')    
-    .replace(/^(\d)/, '_$1'); 
+    .replace(/^(\d)/, '_$1')
+    .replace(/_ts$/, '')
+    .replace(/_js$/, '');
 }

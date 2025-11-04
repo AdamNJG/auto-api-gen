@@ -15,7 +15,7 @@
     "dev": "npx auto-api-gen dev",
     "test": "vitest run --coverage",
     "test:mutation": "npx stryker run && rimraf .stryker-tmp",
-    "clean": "rimraf temp && rimraf bin && rimraf dist && rimraf reports && rimraf coverage && rimraf .stryker-tmp"
+    "clean": "rimraf temp && rimraf bin && rimraf dist && rimraf reports && rimraf coverage && rimraf .stryker-tmp && rimraf generated"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +27,7 @@
     "@babel/types": "^7.28.5",
     "@types/lodash.debounce": "^4.0.9",
     "chokidar": "^4.0.3",
+    "esbuild": "^0.25.12",
     "express": "^5.1.0",
     "jsdom": "^27.0.1",
     "lodash.debounce": "^4.0.8",
