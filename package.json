@@ -1,6 +1,6 @@
 {
   "name": "auto-api-gen",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Generate Express APIs automatically from configuration or endpoint files.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
