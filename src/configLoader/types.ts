@@ -4,6 +4,7 @@ export type AutoApiConfig = {
   middleware_folder?: string;
   app_middleware?: string[];
   rollupExternals?: string[];
+  pre_run_scripts?: string;
 }
 
 type ApiFolder = {

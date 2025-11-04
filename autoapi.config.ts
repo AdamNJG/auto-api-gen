@@ -8,6 +8,7 @@ export const config: AutoApiConfig = {
   port: 4001,
   middleware_folder: 'middleware',
   app_middleware: ['appLogger'],
-  rollupExternals: ['jsdom']
+  rollupExternals: ['jsdom'],
+  pre_run_scripts: 'pre-runscripts'
 }; 
 

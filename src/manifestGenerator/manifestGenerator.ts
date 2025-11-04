@@ -5,6 +5,7 @@ import { parse } from '@babel/parser';
 import { generate } from '@babel/generator';
 import * as t from '@babel/types';
 import _traverse from '@babel/traverse';
+import { readFile } from '../fileHelpers.js';
 const traverse =  typeof _traverse === 'function' ? _traverse : _traverse.default;
 
 export type ControllerManifest = {
@@ -50,7 +51,7 @@ async function mapEntry (entry: string, currentPath: string, functionName: strin
       files.push(...await mapEntry(e, fullPath, functionName, url));
     }
   } else {
-    const endpointResult = parseEndpointFile(fullPath, functionName);
+    const endpointResult = await parseEndpointFile(fullPath, functionName);
     
     if (endpointResult.success) {
       files.push({
@@ -73,11 +74,17 @@ function cleanUrl (url: string): string {
     .replace('.ts', '');
 }
 
-function parseEndpointFile (filePath: string, functionName: string): ParseEndpointResult {
-  const content = fs.readFileSync(filePath, 'utf-8');
+async function parseEndpointFile (filePath: string, functionName: string): Promise<ParseEndpointResult> {
+  const fileReadResult = await readFile(filePath);
+
+  if (!fileReadResult.success) {
+    console.error(fileReadResult.error);
+    return { success: false };
+  }
+
   let ast;
   try {
-    ast = parse(content, { sourceType: 'module', plugins: ['typescript'] });
+    ast = parse(fileReadResult.content, { sourceType: 'module', plugins: ['typescript'] });
   } catch (error) {
     console.error(`Failed to parse ${filePath}: ${error}`);
     return { success: false };
