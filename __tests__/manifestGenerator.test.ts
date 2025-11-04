@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach, vi, Mock } from 'vitest';
-import { createManifest } from '../src/endpointGenerator/manifestGenerator';
-import { File, HttpMethod } from '../src/endpointGenerator/types';
+import { createManifest } from '../src/manifestGenerator/manifestGenerator';
+import { File, HttpMethod } from '../src/manifestGenerator/types';
 
 describe('Manifest Generator', () => {
   let errorMock: Mock<(...args: any[]) => void>;
@@ -24,14 +24,14 @@ describe('Manifest Generator', () => {
     expect(manifest.endpoints).toStrictEqual(bff_test_endpoints);
   });
 
-  test('create manifest', async () => {
+  test('create manifest, invalid config, parse failure', async () => {
     const manifest = await createManifest('./__tests__/test_bff_invalid_config');
 
     expect(manifest.endpoints).toStrictEqual(bff_invalid_config_endpoints);
     expect(errorMock.mock.calls[0][0]).toContain(`Failed to parse `);
   });
 
-  test('create manifest', async () => {
+  test('create manifest, invalid config, eval failure', async () => {
     const babelMock = vi.spyOn(global as any, 'eval').mockImplementation(() => {
       throw new Error('eval failed!');
     });
@@ -40,56 +40,56 @@ describe('Manifest Generator', () => {
     expect(errorMock.mock.calls[0][0]).toContain(`eval failed!`);
     babelMock.mockRestore();
   });
+
+  test('create manifest using config - Typescript', async () => {
+    const manifest = await createManifest('./__tests__/test_bff_config_typescript');
+
+    expect(manifest.endpoints).toStrictEqual(bff_test_endpoints_ts);
+  });
 });
 
 const bff_test_endpoints: File[] = [            
   {
-    name: 'patch.js',
+    name: 'patch.ts',
     route: '/default/patch',
-    path: '__tests__/test_bff_config/default/patch.js',
-    handler: 'function default_patch_js(req, res) {\n  res.send("this is /default/patch");\n}',                                                                     
+    path: '__tests__/test_bff_config/default/patch.ts',                                                                   
     config: {
       httpMethod: HttpMethod.PATCH,
       middleware: [],
-      handlerName: 'default_patch_js',
+      handlerName: 'default_patch',
       isHandlerDefaultExport: true
     }            
   },                                                           
   {                                                                                                              
     name: 'index.js',                                                                                            
     route: '/',                                                                                                  
-    path: '__tests__/test_bff_config/index.js',    
-    handler: 'async function test_bff_config_index_js(req, res) {\n' +
-      '  await res.send("this is the base route");\n' +
-      '}',                                                                     
+    path: '__tests__/test_bff_config/index.js',                                                              
     config: {
       httpMethod: HttpMethod.POST,
       middleware: [],
-      handlerName: 'test_bff_config_index_js',
+      handlerName: 'test_bff_config_index',
       isHandlerDefaultExport: false
     }                                                                                           
   },                                                                                                             
   {
     name: 'index.js',
     route: '/test/',
-    path: '__tests__/test_bff_config/test/index.js',
-    handler: 'function test_index_js(req, res) {\n  res.send("this is /test/");\n}',                                                                     
+    path: '__tests__/test_bff_config/test/index.js',                                                                  
     config: {
       httpMethod: HttpMethod.PUT,
       middleware: [],
-      handlerName: 'test_index_js',
+      handlerName: 'test_index',
       isHandlerDefaultExport: false
     }            
   },
   {
     name: 'test.js',
     route: '/test/test',
-    path: '__tests__/test_bff_config/test/test.js',
-    handler: 'function test_test_js(req, res) {\n  res.send("this is /test/test");\n}',                                                                     
+    path: '__tests__/test_bff_config/test/test.js',                                                                 
     config: {
       httpMethod: HttpMethod.PATCH,
       middleware: [],
-      handlerName: 'test_test_js',
+      handlerName: 'test_test',
       isHandlerDefaultExport: false
     }            
   }
@@ -100,14 +100,58 @@ const bff_invalid_config_endpoints: File[] = [
     name: 'index.js',
     path: '__tests__/test_bff_invalid_config/index.js',
     route: '/',
-    handler: 'async function test_bff_invalid_config_index_js(req, res) {\n' +
-      '  await res.send("this is the base route");\n' +
-      '}',
     config: {
       httpMethod: HttpMethod.GET,
       middleware: [],
-      handlerName: 'test_bff_invalid_config_index_js',
+      handlerName: 'test_bff_invalid_config_index',
       isHandlerDefaultExport: false
     }
+  }
+];
+
+const bff_test_endpoints_ts: File[] = [            
+  {
+    name: 'patch.ts',
+    route: '/default/patch',
+    path: '__tests__/test_bff_config_typescript/default/patch.ts',                                                                   
+    config: {
+      httpMethod: HttpMethod.PATCH,
+      middleware: [],
+      handlerName: 'default_patch',
+      isHandlerDefaultExport: true
+    }            
+  },                                                           
+  {                                                                                                              
+    name: 'index.ts',                                                                                            
+    route: '/',                                                                                                  
+    path: '__tests__/test_bff_config_typescript/index.ts',                                                              
+    config: {
+      httpMethod: HttpMethod.POST,
+      middleware: [],
+      handlerName: 'test_bff_config_typescript_index',
+      isHandlerDefaultExport: false
+    }                                                                                           
+  },                                                                                                             
+  {
+    name: 'index.ts',
+    route: '/test/',
+    path: '__tests__/test_bff_config_typescript/test/index.ts',                                                                  
+    config: {
+      httpMethod: HttpMethod.PUT,
+      middleware: [],
+      handlerName: 'test_index',
+      isHandlerDefaultExport: false
+    }            
+  },
+  {
+    name: 'test.ts',
+    route: '/test/test',
+    path: '__tests__/test_bff_config_typescript/test/test.ts',                                                                 
+    config: {
+      httpMethod: HttpMethod.PATCH,
+      middleware: [],
+      handlerName: 'test_test',
+      isHandlerDefaultExport: false
+    }            
   }
 ];

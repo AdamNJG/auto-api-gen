@@ -2,10 +2,12 @@ import { AutoApiConfig } from './src/configLoader/types';
 
 export const config: AutoApiConfig = {
   api_folders: [{
-    directory: 'pages',
+    directory: 'pages/pages',
     api_slug: '/'
   }],
-  port: 4000,
-  bootstrapDom: true
+  port: 4001,
+  middleware_folder: 'middleware',
+  app_middleware: ['appLogger'],
+  rollupExternals: ['jsdom']
 }; 
 

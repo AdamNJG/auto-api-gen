@@ -3,8 +3,8 @@ import generateServer from '../dist/serverGenerator/serverGenerator.js';
 import chokidar from 'chokidar';
 import { spawn } from 'child_process';
 import debounce from 'lodash.debounce';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
+import { build } from 'esbuild';
+import { AutoApiConfig } from '../dist/configLoader/types.js';
 
 export async function runDevProcesses () {
   const config = await loadConfig();
@@ -14,27 +14,20 @@ export async function runDevProcesses () {
     process.exit(1);
   }
 
-  if (config.bootstrapDom) {
-    try {
-      require('jsdom');
-    } catch {
-      console.log('jsdom required, installing now!');
-      await awaitSpawn('npm', ['install', 'jsdom'], {
-        shell: true,
-        stdio: 'inherit'
-      });
-      console.log('✅ jsdom installed successfully');
-    }
-  }
-
   const result = await generateServer();
 
   if (!result.success) {
     process.exit(1);
   }
 
+  const rollupResult = await rollupServer(config);
+
+  if (!rollupResult.success) {
+    process.exit(1);
+  }
+
   let currentProcess: ReturnType<typeof spawn> | null = null;
-  const generatedWatcher = chokidar.watch('generated', {
+  const generatedWatcher = chokidar.watch('out', {
     ignoreInitial: false
   });
 
@@ -43,12 +36,16 @@ export async function runDevProcesses () {
       currentProcess.kill();
     }
 
-    currentProcess = spawn('node', ['./generated/index.js'], {
+    currentProcess = spawn('node', ['./out/server.cjs'], {
       stdio: 'inherit'
     });
   }); 
 
-  const apiWatcher = chokidar.watch(config.api_folders.map(f => f.directory), {
+  const apiWatchList: string[] = [config.api_folders.map(f => f.directory), config.middleware_folder]
+    .flat()
+    .filter(f => f !== undefined);
+
+  const apiWatcher = chokidar.watch(apiWatchList.map(f => f), {
     ignoreInitial: true
   });
 
@@ -58,6 +55,12 @@ export async function runDevProcesses () {
 
     if (!result.success) {
       console.error('[DEV] Server generation failed. Fix the error and restart the CLI.');
+      process.exit(1);
+    }
+
+    const rollupResult = await rollupServer(config);
+
+    if (!rollupResult.success) {
       process.exit(1);
     }
   }, 300);
@@ -83,4 +86,28 @@ export function awaitSpawn (command: string, args: string[] = [], options: any =
       else reject(new Error(`${command} ${args.join(' ')} exited with code ${code}`));
     });
   });
+}
+
+async function rollupServer (config: AutoApiConfig) : Promise<{success: boolean}> {
+
+  try {
+    await build({
+      entryPoints: ['generated/index.ts'],
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      outfile: 'out/server.cjs',
+      sourcemap: true,
+      external: config.rollupExternals ?? []
+    });
+    console.log('server compiled');
+    return {
+      success: true
+    };
+  } catch (err) {
+    console.error('server compilation failed', err);
+    return {
+      success: false
+    };
+  }
 }

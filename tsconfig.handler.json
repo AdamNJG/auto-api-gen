@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "target": "ES2020",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "moduleResolution": "nodenext",
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,     
+  },
+  "include": ["generated", "middleware"]
+}

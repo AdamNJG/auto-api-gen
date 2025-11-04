@@ -1,0 +1,32 @@
+name: Publish
+
+on: 
+  push: 
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Test and Publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test using Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm run build
+      - name: "npm publish"
+        run: |
+          repository_version="$(npm view | grep -n latest | awk '{print $2}')"
+          package_version="$(grep version package.json | awk '{print $2}' | tr -d '\"'  | tr -d ',')"
+
+          if [ $repository_version = $package_version ]; then
+              echo "the pushed version matches the published version, skipping publish"
+            else
+              npm publish
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

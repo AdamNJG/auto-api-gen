@@ -4,6 +4,9 @@ import path from 'path';
 import * as fs from 'fs/promises';
 import { AutoApiConfig } from '../configLoader/types.js';
 import { GenerateServerResult, RouterMapping } from './types.js';
+import aggregateMiddleware from '../middlewareAggregator/middlewareAggregator.js';
+
+const defaultGenerated = './generated';
 
 export default async function generateServer (configLocationOverride: string | undefined = undefined) : Promise<GenerateServerResult> { 
   const config = await loadConfig(configLocationOverride);
@@ -16,7 +19,7 @@ export default async function generateServer (configLocationOverride: string | u
   }
 
   try {
-    await fs.mkdir(path.dirname('./generated'), { recursive: true });
+    await fs.mkdir(path.dirname(defaultGenerated), { recursive: true });
   } catch (error) { 
     console.error(error);
     return {
@@ -26,11 +29,11 @@ export default async function generateServer (configLocationOverride: string | u
 
   const routerMappings: Record<string, RouterMapping> = {};
   for (const apiFolder of config.api_folders) {
-    const result = await generateEndpoints(apiFolder.directory, path.join('./generated', apiFolder.directory.replace('./', '') + '.js'));
+    const result = await generateEndpoints(apiFolder.directory, path.join(defaultGenerated, apiFolder.directory.replace('./', '') + '.ts'));
     if (result.success) {
+      console.log(`generated endpoints: ${defaultGenerated}/${apiFolder.directory}.ts`);
       routerMappings[apiFolder.api_slug] = mapRouterImport(apiFolder.directory);
     }
-
   }
 
   if (Object.keys(routerMappings).length === 0) {
@@ -38,6 +41,13 @@ export default async function generateServer (configLocationOverride: string | u
     return {
       success: false
     };
+  }
+
+  if (config.middleware_folder) {
+    const result = await aggregateMiddleware('./' + config.middleware_folder, path.join(defaultGenerated, 'middleware.ts'));
+    if (result.success) {
+      console.log(`middleware aggregation created at ${defaultGenerated}/middleware.ts`);
+    }
   }
 
   await generateIndex(routerMappings, config);
@@ -53,11 +63,11 @@ function mapRouterImport (routerPath: string): RouterMapping {
 
 async function generateIndex (routerMappings: Record<string, RouterMapping>, config: AutoApiConfig) {
   const index = `import express from 'express';
-${Object.values(routerMappings).map(r => r.import + ';')}
+${Object.values(routerMappings).map(r => r.import + ';')}${shouldAddMiddleware(config) ? `\nimport middleware from './middleware.js';` : ''}
 
-const app = express();
+const app = express();${shouldAddMiddleware(config) ? `\nconst appMiddleware = ['${config.app_middleware?.map(m => m)}'];\n` : ''}
 
-${Object.entries(routerMappings).map(([key, r]) => `app.use('${key}', ${r.importName});`)}
+${Object.entries(routerMappings).map(([key, r]) => `app.use('${key}',${shouldAddMiddleware(config) ? ' appMiddleware.map(k => middleware[k]),' : ''} ${r.importName});`)}
 
 app.listen(${config.port}, () => {
   console.log('Example app listening on port ${config.port}'); 
@@ -65,9 +75,13 @@ app.listen(${config.port}, () => {
   `;
 
   try {
-    await fs.writeFile('./generated/index.js', index, 'utf8');
-    console.log('generated server entrypoint: ./generated/index.js');
+    await fs.writeFile(`${defaultGenerated}/index.ts`, index, 'utf8');
+    console.log(`generated server entrypoint: ${defaultGenerated}/index.ts`);
   } catch (error) { 
     console.error(error);
   }
+}
+
+function shouldAddMiddleware (config: AutoApiConfig): boolean {
+  return Boolean(config.middleware_folder !== undefined && config.app_middleware !== undefined);
 }

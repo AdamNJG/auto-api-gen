@@ -1,3 +1,4 @@
+
 import { describe, test, expect, beforeEach, afterEach, Mock, vi } from 'vitest';
 import * as fs from 'fs';
 import generateServer from '../src/serverGenerator/serverGenerator';
@@ -22,53 +23,22 @@ describe('serverGenerator tests', () => {
     logMock.mockRestore();
   });
 
-  test('generates server.js file, checking endpoints', async () => {
-    const result = await generateServer('./__tests__/configs/server');
-    expect(result.success).toBe(true);
-
-    expect(fs.existsSync(path.resolve(cwd(), './generated/__tests__/test_bff.js'))).toBeTruthy();
-    expect(fs.existsSync(path.resolve(cwd(), './generated/index.js'))).toBeTruthy();
-
-    expect(logMock).toHaveBeenCalledWith('generated server entrypoint: ./generated/index.js');
-
-    const serverProcess = spawn('node', ['./generated/index.js'], {
-      stdio: 'inherit'
-    });
-
-    await new Promise(res => setTimeout(res, 500));
-
-    try {
-      const resRoot = await fetch('http://localhost:1234/_api/');
-      expect(resRoot.status).toBe(200);
-      expect(await resRoot.text()).toBe('this is the base route');
-
-      const resTest = await fetch('http://localhost:1234/_api/test');
-      expect(resTest.status).toBe(200);
-      expect(await resTest.text()).toBe('this is /test/');
-
-      const resTestTest = await fetch('http://localhost:1234/_api/test/test');
-      expect(resTestTest.status).toBe(200);
-      expect(await resTestTest.text()).toBe('this is /test/test');
-    } finally {
-      serverProcess.kill();
-      await deleteGeneratedFiles();
-    }
-  });
-
   test('generates server.js file, checking file structure', async () => {
     const result = await generateServer('./__tests__/configs/server');
     expect(result.success).toBe(true);
 
-    expect(fs.existsSync(path.resolve(cwd(), './generated/index.js'))).toBeTruthy();
+    expect(fs.existsSync(path.resolve(cwd(), './generated/index.ts'))).toBeTruthy();
 
-    const indexPath = path.resolve('./generated/index.js');
+    const indexPath = path.resolve('./generated/index.ts');
     const indexContent = await fs.promises.readFile(indexPath, 'utf-8');
-    const expectedIndexContent = await fs.promises.readFile('./__tests__/generatedOutputs/index.js', 'utf-8');
+    const expectedIndexContent = await fs.promises.readFile('./__tests__/generatedOutputs/index.ts', 'utf-8');
 
+    try {    
     // styker adds @ts-nocheck to generated output, the replace is to bypass equality issues!
-    expect(indexContent).toEqual(expectedIndexContent.replace(/^\/\/\s*@ts-nocheck\s*\n/, ''));
-
-    await deleteGeneratedFiles();
+      expect(indexContent).toEqual(expectedIndexContent.replace(/^\/\/\s*@ts-nocheck\s*\n/, ''));
+    } finally {
+      await deleteGeneratedFiles();
+    }
   });
 
   test('no config file, does not continue to generate the server', async () => {

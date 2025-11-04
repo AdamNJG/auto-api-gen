@@ -1,10 +1,11 @@
-import { File, GenerateEndpointsResults } from './types.js';
-import { promises as fs } from 'fs';
+import { File } from '../manifestGenerator/types.js';
+import { GenerateEndpointsResults } from './types.js';
 import * as path from 'path';
-import { ControllerManifest, createManifest } from './manifestGenerator.js';
+import { ControllerManifest, createManifest } from '../manifestGenerator/manifestGenerator.js';
+import { makeDirectory, writeFile } from '../fileHelpers.js';
 
 export default async function generateEndpoints (sourceDirectory: string, outputPath: string) : Promise<GenerateEndpointsResults> {
-  const manifest: ControllerManifest = await createManifest(sourceDirectory);
+  const manifest: ControllerManifest = await createManifest(sourceDirectory, 'handler');
 
   if (manifest.endpoints.length == 0) {
     console.error(`No endpoints found to map for ${sourceDirectory}`);
@@ -26,9 +27,23 @@ ${routerDefinitions}
 export default router;
     `;
 
-  await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  await fs.writeFile(outputPath, gen, 'utf8');
-  console.log(`generated endpoints: ${outputPath}`);
+  const dirResult = await makeDirectory(path.dirname(outputPath));
+
+  if (!dirResult.success) {
+    console.error(`Error creating the directory: ${path.dirname(outputPath)}: `, dirResult.error);
+    return {
+      success: false
+    };
+  }
+
+  const writeResult = await writeFile(outputPath, gen);
+  if (!writeResult.success) {
+    console.error(`Error writing the file: ${outputPath}: `, writeResult.error);
+    return {
+      success: false
+    };
+  }
+
   return {
     success: true
   };
@@ -47,9 +62,9 @@ function mapHandlerImport (endpoint: File, outputPath: string) {
   if (!relativePath.startsWith('.')) relativePath = './' + relativePath;
 
   if (endpoint.config.isHandlerDefaultExport) {
-    return `import ${endpoint.config.handlerName} from '${relativePath}'`;
+    return `import ${endpoint.config.handlerName} from '${relativePath.replace('.ts','.js')}';`;
   } else {
-    return `import {handler as ${endpoint.config.handlerName}} from '${relativePath}'`;
+    return `import { handler as ${endpoint.config.handlerName} } from '${relativePath.replace('.ts','.js')}';`;
   }
 }
 
