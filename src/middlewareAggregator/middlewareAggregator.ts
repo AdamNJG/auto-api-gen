@@ -53,7 +53,7 @@ function mapMiddlewareImport (endpoint: File, outputPath: string) {
   if (endpoint.config.isHandlerDefaultExport) {
     return `import ${endpoint.config.handlerName} from '${relativePath.replace('.ts','.js')}'`;
   } else {
-    return `import { handler as ${endpoint.config.handlerName} } from '${relativePath.replace('.ts','.js')}'`;
+    return `import { middleware as ${endpoint.config.handlerName} } from '${relativePath.replace('.ts','.js')}'`;
   }
 }
 
