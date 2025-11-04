@@ -1,7 +1,6 @@
 import { loadConfig } from '../configLoader/configLoader.js';
 import generateEndpoints from '../endpointGenerator/endpointGenerator.js';
 import path from 'path';
-import * as fs from 'fs/promises';
 import { AutoApiConfig } from '../configLoader/types.js';
 import { GenerateServerResult, RouterMapping } from './types.js';
 import aggregateMiddleware from '../middlewareAggregator/middlewareAggregator.js';
@@ -22,7 +21,7 @@ export default async function generateServer (configLocationOverride: string | u
   const dirResult = await makeDirectory(path.dirname(defaultGenerated));
 
   if (!dirResult.success) {
-    console.error(`Error creating the directory: ${path.dirname(outputPath)}: `, dirResult.error);
+    console.error(`Error creating the directory: ${path.dirname(defaultGenerated)}: `, dirResult.error);
     return {
       success: false
     };
