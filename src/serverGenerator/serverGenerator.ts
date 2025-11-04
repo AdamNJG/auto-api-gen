@@ -5,6 +5,7 @@ import * as fs from 'fs/promises';
 import { AutoApiConfig } from '../configLoader/types.js';
 import { GenerateServerResult, RouterMapping } from './types.js';
 import aggregateMiddleware from '../middlewareAggregator/middlewareAggregator.js';
+import { makeDirectory, writeFile } from '../fileHelpers.js';
 
 const defaultGenerated = './generated';
 
@@ -18,10 +19,10 @@ export default async function generateServer (configLocationOverride: string | u
     };
   }
 
-  try {
-    await fs.mkdir(path.dirname(defaultGenerated), { recursive: true });
-  } catch (error) { 
-    console.error(error);
+  const dirResult = await makeDirectory(path.dirname(defaultGenerated));
+
+  if (!dirResult.success) {
+    console.error(`Error creating the directory: ${path.dirname(outputPath)}: `, dirResult.error);
     return {
       success: false
     };
@@ -74,12 +75,13 @@ app.listen(${config.port}, () => {
 }); 
   `;
 
-  try {
-    await fs.writeFile(`${defaultGenerated}/index.ts`, index, 'utf8');
-    console.log(`generated server entrypoint: ${defaultGenerated}/index.ts`);
-  } catch (error) { 
-    console.error(error);
+  const writeResult = await writeFile(`${defaultGenerated}/index.ts`, index);
+  if (!writeResult.success) {
+    console.error(`Error writing the file: ${defaultGenerated}/index.ts: `, writeResult.error);
+    return;
   }
+    
+  console.log(`generated server entrypoint: ${defaultGenerated}/index.ts`);
 }
 
 function shouldAddMiddleware (config: AutoApiConfig): boolean {
