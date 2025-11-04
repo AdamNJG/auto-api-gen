@@ -66,7 +66,7 @@ async function generateIndex (routerMappings: Record<string, RouterMapping>, con
 
   console.log(preRunScriptImports);
 
-  const index = `${preRunScriptImports.map(e => e).join(';\n')}import express from 'express';
+  const index = `${preRunScriptImports.map(e => e + ';\n')}import express from 'express';
 ${Object.values(routerMappings).map(r => r.import + ';')}${shouldAddMiddleware(config) ? `\nimport middleware from './middleware.js';` : ''}
 
 const app = express();${shouldAddMiddleware(config) ? `\nconst appMiddleware = ['${config.app_middleware?.map(m => m)}'];\n` : ''}
