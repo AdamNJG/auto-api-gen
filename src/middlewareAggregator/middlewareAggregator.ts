@@ -7,6 +7,7 @@ type GenerateMiddlewareResult = GenerateMiddlewareSuccess | GenerateMiddlewareFa
 
 type GenerateMiddlewareSuccess = {
   success: true;
+  foundMiddleware: string[];
 }
 
 type GenerateMiddlewareFailure = {
@@ -51,9 +52,9 @@ function mapMiddlewareImport (endpoint: File, outputPath: string) {
   if (!relativePath.startsWith('.')) relativePath = './' + relativePath;
 
   if (endpoint.config.isHandlerDefaultExport) {
-    return `import ${endpoint.config.handlerName} from '${relativePath.replace('.ts','.js')}'`;
+    return `import ${endpoint.config.handlerName} from '${relativePath}'`;
   } else {
-    return `import { middleware as ${endpoint.config.handlerName} } from '${relativePath.replace('.ts','.js')}'`;
+    return `import { middleware as ${endpoint.config.handlerName} } from '${relativePath}'`;
   }
 }
 
@@ -71,7 +72,8 @@ export default middleware;
     await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
     await fs.promises.writeFile(outputPath, middlewareFile, 'utf8');
     return {
-      success: true
+      success: true,
+      foundMiddleware: mappings.map(m => m.middleWareName)
     };
   } catch (err) {
     console.error('Failure writing middleware aggregation: ', err); 
