@@ -62,9 +62,9 @@ function mapHandlerImport (endpoint: File, outputPath: string) {
   if (!relativePath.startsWith('.')) relativePath = './' + relativePath;
 
   if (endpoint.config.isHandlerDefaultExport) {
-    return `import ${endpoint.config.handlerName} from '${relativePath.replace('.ts','.js')}';`;
+    return `import ${endpoint.config.handlerName} from '${relativePath}';`;
   } else {
-    return `import { handler as ${endpoint.config.handlerName} } from '${relativePath.replace('.ts','.js')}';`;
+    return `import { handler as ${endpoint.config.handlerName} } from '${relativePath}';`;
   }
 }
 

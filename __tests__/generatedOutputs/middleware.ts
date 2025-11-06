@@ -1,5 +1,5 @@
 import middleware_testLogger from './middleware/testLogger.js';
-import { middleware as middleware_testMiddleware } from './middleware/testMiddleware.js';
+import { middleware as middleware_testMiddleware } from './middleware/testMiddleware.ts';
   
 const middleware = {
   'testLogger': middleware_testLogger,

@@ -33,8 +33,8 @@ export async function loadConfig (configOverride: string | undefined = undefined
 }
 
 async function importJsConfig (filePath: string): Promise<AutoApiConfig> {
-
-  const mod = await import(filePath);
+  const fileUrl = pathToFileURL(filePath).href;
+  const mod = await import(fileUrl);
 
   const config: AutoApiConfig =
   (mod as any).config ??  

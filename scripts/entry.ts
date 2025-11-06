@@ -2,8 +2,7 @@
 
 import { argv } from 'node:process';
 import { runDevProcesses } from './dev.js';
-
-//const execAsync = promisify(exec);
+import { runBuild } from './build.js';
 
 const command = argv[2];
 
@@ -11,6 +10,10 @@ switch (command) {
 case 'dev':{
   await runDevProcesses();
   break; 
+}
+case 'build': {
+  await runBuild();
+  break;
 }
 default:
   console.log(`Unknown command: ${command}`);

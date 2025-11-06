@@ -28,6 +28,8 @@ describe('middlewareGenerator', () => {
   
     const result = await aggregateMiddleware(`./${middlewareSourcePath}`, middlewarePath);
     expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.foundMiddleware).toStrictEqual(['testLogger', 'testMiddleware']);
   
     const gennedContent = await fs.promises.readFile(middlewarePath, 'utf-8');
     const expectedGennedContent = await fs.promises.readFile('./__tests__/generatedOutputs/middleware.ts', 'utf-8');

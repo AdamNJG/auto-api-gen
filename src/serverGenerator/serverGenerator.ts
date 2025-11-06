@@ -21,7 +21,7 @@ export default async function generateServer (configLocationOverride: string | u
   const dirResult = await makeDirectory(path.dirname(defaultGenerated));
 
   if (!dirResult.success) {
-    console.error(`Error creating the directory: ${path.dirname(defaultGenerated)}: `, dirResult.error);
+    console.error(`Error creating the directory: ${defaultGenerated}: `, dirResult.error);
     return {
       success: false
     };
@@ -43,35 +43,41 @@ export default async function generateServer (configLocationOverride: string | u
     };
   }
 
+  const foundAppMiddleware: string[] = [];
   if (config.middleware_folder) {
-    const result = await aggregateMiddleware('./' + config.middleware_folder, path.join(defaultGenerated, 'middleware.ts'));
+    const result = await aggregateMiddleware(config.middleware_folder, path.join(defaultGenerated, 'middleware.ts'));
     if (result.success) {
+      result.foundMiddleware.forEach((m: string) => {
+
+        if (config.app_middleware && config.app_middleware.includes(m)) {
+          foundAppMiddleware.push(m);
+        }
+      });
       console.log(`middleware aggregation created at ${defaultGenerated}/middleware.ts`);
     }
   }
 
-  await generateIndex(routerMappings, config);
+  await generateIndex(routerMappings, config, foundAppMiddleware);
   return {
     success: true
   };
 }
 
 function mapRouterImport (routerPath: string): RouterMapping {
-  const importName = path.basename(routerPath).replace('.js', '');
-  return { import: `import ${importName} from './${routerPath}.js'`, importName: importName };
+  const importName = path.basename(routerPath);
+  return { import: `import ${importName} from './${routerPath}.ts'`, importName: importName };
 }
 
-async function generateIndex (routerMappings: Record<string, RouterMapping>, config: AutoApiConfig) {
+async function generateIndex (routerMappings: Record<string, RouterMapping>, config: AutoApiConfig, foundAppMiddleware: string[]) {
   const preRunScriptImports = await getPreRunScriptImports(config);
-
-  console.log(preRunScriptImports);
+  const canAddMiddleware: boolean = foundAppMiddleware.length > 0;
 
   const index = `${preRunScriptImports.map(e => e + ';\n')}import express from 'express';
-${Object.values(routerMappings).map(r => r.import + ';')}${shouldAddMiddleware(config) ? `\nimport middleware from './middleware.js';` : ''}
+${Object.values(routerMappings).map(r => r.import + ';')}${canAddMiddleware ? `\nimport middleware from './middleware.ts';` : ''}
 
-const app = express();${shouldAddMiddleware(config) ? `\nconst appMiddleware = ['${config.app_middleware?.map(m => m)}'];\n` : ''}
+const app = express();${canAddMiddleware ? `\nconst appMiddleware = [${foundAppMiddleware.map(m => `'${m}'`).join(', ')}];` : ''}
 
-${Object.entries(routerMappings).map(([key, r]) => `app.use('${key}',${shouldAddMiddleware(config) ? ' appMiddleware.map(k => middleware[k]),' : ''} ${r.importName});`)}
+${Object.entries(routerMappings).map(([key, r]) => `app.use('${key}',${canAddMiddleware ? ' appMiddleware.map(k => middleware[k]),' : ''} ${r.importName});`)}
 
 app.listen(${config.port}, () => {
   console.log('Example app listening on port ${config.port}'); 
@@ -87,10 +93,6 @@ app.listen(${config.port}, () => {
   console.log(`generated server entrypoint: ${defaultGenerated}/index.ts`);
 }
 
-function shouldAddMiddleware (config: AutoApiConfig): boolean {
-  return Boolean(config.middleware_folder !== undefined && config.app_middleware !== undefined);
-}
-
 async function getPreRunScriptImports (config: AutoApiConfig): Promise<string[]> { 
   if (config.pre_run_scripts === undefined) {
     return [];
@@ -99,14 +101,14 @@ async function getPreRunScriptImports (config: AutoApiConfig): Promise<string[]>
   const resolvedDirectory = path.resolve(process.cwd(), config.pre_run_scripts);
 
   if (!exists(resolvedDirectory)) { 
-    console.log('no exist!', resolvedDirectory);
+    console.log('The directory for prescripts does not exist: ', config.pre_run_scripts);
     return [];
   }
 
   const entries = await readDirectory(config.pre_run_scripts);
 
-  if (!entries.success) {
-    console.log('no pre-run scripts found');
+  if (!entries.success || entries.content.length === 0) {
+    console.log('No pre-run scripts found in: ', config.pre_run_scripts);
     return [];
   }
 

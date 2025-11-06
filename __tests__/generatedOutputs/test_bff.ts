@@ -1,5 +1,5 @@
 import express from 'express';
-import default_patch from './test_bff_config/default/patch.js';
+import default_patch from './test_bff_config/default/patch.ts';
 import { handler as test_bff_config_index } from './test_bff_config/index.js';
 import { handler as test_index } from './test_bff_config/test/index.js';
 import { handler as test_test } from './test_bff_config/test/test.js';
