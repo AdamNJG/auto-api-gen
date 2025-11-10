@@ -1,11 +1,10 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import { Config, File, HttpMethod } from './types.js';
 import { parse } from '@babel/parser';
 import { generate } from '@babel/generator';
 import * as t from '@babel/types';
 import _traverse from '@babel/traverse';
-import { readFile } from '../fileHelpers.js';
+import { exists, readDirectory, readFileSync, stat } from '../fileHelpers.js';
 const traverse =  typeof _traverse === 'function' ? _traverse : _traverse.default;
 
 export type ControllerManifest = {
@@ -32,54 +31,45 @@ export default class ManifestGenerator {
 
   async createManifest (): Promise<ControllerManifest> {
     console.log(this.defaultHandlerName);
-    if (!fs.existsSync(this.baseDir)) return { endpoints: [] };
+    if (!exists(this.baseDir)) return { endpoints: [] };
 
-    const entries = fs.readdirSync(this.baseDir);
+    const directoryResult = await readDirectory(this.baseDir);
+
+    if (!directoryResult.success) {
+      console.error('Error reading handler directory: ', directoryResult.error);
+      return {
+        endpoints: []
+      };
+    }
+
     const mappedEntries: File[] = [];
 
-    for (const entry of entries) { 
+    for (const entry of directoryResult.content) { 
       mappedEntries.push(...await this.mapEntry(entry, this.baseDir));
     }
 
     return { endpoints: mappedEntries };
   }
 
-  async mapEntryOrig (entry: string, currentPath: string, url: string = '') : Promise<File[]> {
-    const fullPath = path.join(currentPath, entry);
-    const stats = fs.statSync(fullPath);
-    const newUrl = `${url}/${entry}`;
-
-    const files: File[] = [];
-
-    if (stats.isDirectory()) {
-      const subEntries = fs.readdirSync(fullPath);
-      for (const e of subEntries) {
-        files.push(...await this.mapEntry(e, fullPath, newUrl));
-      }
-    } else {
-      const endpointResult = await this.parseEndpointFile(fullPath);
-    
-      if (endpointResult.success) {
-        files.push({
-          name: entry,
-          route: this.cleanUrl(newUrl),
-          path: fullPath.replace(/\\/g, '/'),
-          config: endpointResult.endpoint.config
-        });
-      }
-    }
-
-    return files;
-  }
-
   async mapEntry (entry: string, currentPath: string, url: string = '') : Promise<File[]> {
     const fullPath = path.join(currentPath, entry);
-    const stats = fs.statSync(fullPath);
+    const statResult = stat(fullPath);
+
+    if (!statResult.success) {
+      console.error(`Couldn't get info for file: ${fullPath}: `, statResult.error);
+      return [];
+    }
+
     const newUrl = `${url}/${entry}`;
 
-    if (stats.isDirectory()) {
-      const subEntries = fs.readdirSync(fullPath);
-      const results = await Promise.all(subEntries.map(e => this.mapEntry(e, fullPath, newUrl)));
+    if (statResult.content.isDirectory()) {
+      const entriesResult = await readDirectory(fullPath);
+
+      if (!entriesResult.success) {
+        console.error(`Couldn't read directory: ${fullPath}: `, entriesResult.error);
+        return [];
+      }
+      const results = await Promise.all(entriesResult.content.map(e => this.mapEntry(e, fullPath, newUrl)));
       return results.flat();
     } 
 
@@ -109,8 +99,8 @@ export default class ManifestGenerator {
     return cleanUrl;
   }
 
-  async parseEndpointFile (filePath: string): Promise<ParseEndpointResult> {
-    const fileReadResult = await readFile(filePath);
+  parseEndpointFile (filePath: string): ParseEndpointResult {
+    const fileReadResult = readFileSync(filePath);
 
     if (!fileReadResult.success) {
       console.error(fileReadResult.error);
@@ -165,32 +155,22 @@ export default class ManifestGenerator {
   }
 
   parseConfig (configNode: t.ObjectExpression | null, handlerName: string, isHandlerDefaultExport: boolean) : Config {
+    let cfg: Partial<Config> = {};
+
     if (configNode) {
       try {
-        const cfg = eval('(' + generate(configNode).code + ')') as Partial<Config>;
-        return {
-          httpMethod: cfg.httpMethod ?? HttpMethod.GET,
-          middleware: cfg.middleware ?? [],
-          handlerName: handlerName,
-          isHandlerDefaultExport
-        };
+        cfg = eval('(' + generate(configNode).code + ')') as Partial<Config>;
       } catch (error) {
-        console.error(`failed to evaluate config, using endpoint defaults: ${error}`);
-        return {
-          httpMethod: HttpMethod.GET,
-          middleware: [],
-          handlerName: handlerName,
-          isHandlerDefaultExport
-        };
+        console.error(`Failed to evaluate config, using endpoint defaults: ${error}`);
       }
-    } else {
-      return {
-        httpMethod: HttpMethod.GET,
-        middleware: [],
-        handlerName: handlerName,
-        isHandlerDefaultExport
-      };
     }
+
+    return {
+      httpMethod: cfg?.httpMethod ?? HttpMethod.GET,
+      middleware: cfg?.middleware ?? [],
+      handlerName,
+      isHandlerDefaultExport
+    };
   }
 
   getFunctionName (filePath: string) : string {

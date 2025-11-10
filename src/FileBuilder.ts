@@ -1,7 +1,7 @@
 export default class FileBuilder {
   private file: string;
 
-  private constructor (initialInput: string = '') {
+  private constructor (initialInput: string) {
     this.file = initialInput;
   }
 

@@ -1,8 +1,8 @@
 import ManifestGenerator from '../manifestGenerator/manifestGenerator.js';
 import { File } from '../manifestGenerator/types.js';
 import path from 'path';
-import * as fs from 'fs';
-import FileBuilder from '../FileBuilder.js';
+import FileBuilder from '../fileBuilder.js';
+import { makeDirectory, writeFile } from '../fileHelpers.js';
 
 type GenerateMiddlewareResult = GenerateMiddlewareSuccess | GenerateMiddlewareFailure;
 
@@ -84,22 +84,40 @@ ${this.mappings.map(m => `  '${m.middleWareName}': ${m.mappedFunctionName}`).joi
       .addLine('export default middleware;')
       .getFile();
 
-    try {
-      await fs.promises.mkdir(path.dirname(this.outputPath), { recursive: true });
-      await fs.promises.writeFile(this.outputPath, middlewareFile, 'utf8');
-      return {
-        success: true
-      };
-    } catch (err) {
-      console.error('Failure writing middleware aggregation: ', err); 
+    const writeResult = await this.writeMiddlewareFile(middlewareFile);
 
-      return {
-        success: false
-      };
+    if (!writeResult.success) {
+      this.mappings = [];
     }
+
+    return writeResult;
   }
 
   private getMiddlewareName (filePath: string) {
     return path.basename(filePath).replace('.js', '').replace('.ts', '');
+  }
+
+  private async writeMiddlewareFile (middlewareFile: string) {
+    const mkdirResult = await makeDirectory(path.dirname(this.outputPath));
+
+    if (!mkdirResult.success) {
+      console.error('Failed to make directory: ', mkdirResult.error);
+      return {
+        success: false
+      };
+    }
+
+    const writeResult = await writeFile(this.outputPath, middlewareFile);
+      
+    if (!writeResult.success) {
+      console.error('Failed to write middleware file: ', writeResult.error);
+      return {
+        success: false
+      };
+    }
+
+    return {
+      success: true
+    };
   }
 }

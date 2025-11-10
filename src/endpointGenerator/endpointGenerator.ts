@@ -4,7 +4,7 @@ import * as path from 'path';
 import ManifestGenerator, { ControllerManifest } from '../manifestGenerator/manifestGenerator.js';
 import { makeDirectory, writeFile } from '../fileHelpers.js';
 import MiddlewareAggregator from '../middlewareAggregator/middlewareAggregator.js';
-import FileBuilder from '../FileBuilder.js';
+import FileBuilder from '../fileBuilder.js';
 
 type EndpointDefinition = {
   definition: string, 

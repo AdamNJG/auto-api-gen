@@ -1,6 +1,7 @@
 import { describe, test, expect, Mock, vi, beforeEach, afterEach } from 'vitest';
 import MiddlewareAggregator from '../src/middlewareAggregator/middlewareAggregator';
 import * as fs from 'fs';
+import * as fileHelpers from '../src/fileHelpers';
 
 describe('middlewareGenerator', () => {
   const middlewareBasePath = './__tests__/middleware';
@@ -52,6 +53,42 @@ describe('middlewareGenerator', () => {
     expect(errorMock).toBeCalledWith(`No middleware found in folder: ./${middlewareSourcePath}`);
   
     expect(fs.existsSync(middlewarePath)).toBeFalsy();
+  });
+
+  test('points at middleware folder, write directory failure', async () => {
+    const error: string = 'could not make directory';
+    const makeDirMock = vi.spyOn(fileHelpers, 'makeDirectory').mockResolvedValue({ success: false, error: error });
+
+    const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
+    const middlewarePath = `${middlewareBasePath}_${uniqueSuffix}.js`;
+    const middlewareSourcePath = '__tests__/middleware';
+  
+    const middlewareAggregator = new MiddlewareAggregator(`./${middlewareSourcePath}`, middlewarePath);
+    const result = await middlewareAggregator.aggregateMiddleware();
+    expect(result.success).toBe(false);
+    expect(fs.existsSync(middlewarePath)).toBe(false);
+    expect(errorMock).toBeCalledWith('Failed to make directory: ', error);
+
+    expect(middlewareAggregator.getAvailableMiddleware(['testLogger', 'testMiddleware', 'notTestware'])).toStrictEqual([]);
+    makeDirMock.mockRestore();
+  });
+
+  test('points at middleware folder, write file failure', async () => {
+    const error: string = 'could not write file';
+    const makeDirMock = vi.spyOn(fileHelpers, 'writeFile').mockResolvedValue({ success: false, error: error });
+
+    const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
+    const middlewarePath = `${middlewareBasePath}_${uniqueSuffix}.js`;
+    const middlewareSourcePath = '__tests__/middleware';
+  
+    const middlewareAggregator = new MiddlewareAggregator(`./${middlewareSourcePath}`, middlewarePath);
+    const result = await middlewareAggregator.aggregateMiddleware();
+    expect(result.success).toBe(false);
+    expect(fs.existsSync(middlewarePath)).toBe(false);
+    expect(errorMock).toBeCalledWith('Failed to write middleware file: ', error);
+
+    expect(middlewareAggregator.getAvailableMiddleware(['testLogger', 'testMiddleware', 'notTestware'])).toStrictEqual([]);
+    makeDirMock.mockRestore();
   });
 }); 
 
