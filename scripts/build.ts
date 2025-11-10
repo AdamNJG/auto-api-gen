@@ -1,7 +1,7 @@
 import { loadConfig } from '../dist/configLoader/configLoader.js';
-import generateServer from '../dist/serverGenerator/serverGenerator.js';
 import { build } from 'esbuild';
 import { AutoApiConfig } from '../dist/configLoader/types.js';
+import ServerGenerator from '../dist/serverGenerator/serverGenerator.js';
 
 export async function runBuild () {
   const config = await loadConfig();
@@ -10,8 +10,8 @@ export async function runBuild () {
     console.error('no config found, make one called autoapi.config.ts');
     process.exit(1);
   }
-
-  const result = await generateServer();
+  const serverGenerator = new ServerGenerator(config);
+  const result = await serverGenerator.generateServer();
 
   if (!result.success) {
     console.error('Server generation failed.');

@@ -15,7 +15,7 @@
     "dev": "npx auto-api-gen dev",
     "test": "vitest run --coverage",
     "test:mutation": "npx stryker run && rimraf .stryker-tmp",
-    "clean": "rimraf temp && rimraf bin && rimraf dist && rimraf reports && rimraf coverage && rimraf .stryker-tmp && rimraf generated"
+    "clean": "rimraf temp && rimraf bin && rimraf dist && rimraf reports && rimraf coverage && rimraf .stryker-tmp && rimraf generated && rimraf out"
   },
   "keywords": [],
   "author": "",

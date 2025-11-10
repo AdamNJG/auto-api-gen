@@ -1,20 +1,19 @@
 import { loadConfig } from '../dist/configLoader/configLoader.js';
-import generateServer from '../dist/serverGenerator/serverGenerator.js';
 import chokidar from 'chokidar';
 import { spawn } from 'child_process';
 import debounce from 'lodash.debounce';
-import { build } from 'esbuild';
 import { AutoApiConfig } from '../dist/configLoader/types.js';
+import ServerGenerator from '../dist/serverGenerator/serverGenerator.js';
 
 export async function runDevProcesses () {
-  const config = await loadConfig();
+  const config: AutoApiConfig | undefined = await loadConfig();
 
   if (!config) {
     console.error('no config found, make one called autoapi.config.ts');
     process.exit(1);
   }
-
-  const result = await generateServer();
+  const serverGenerator = new ServerGenerator(config);
+  const result = await serverGenerator.generateServer();
 
   if (!result.success) {
     process.exit(1);
@@ -30,7 +29,8 @@ export async function runDevProcesses () {
 
   const rebuildServer = debounce(async () => {
     console.log('[DEV] Rebuilding server...');
-    const result = await generateServer();
+
+    const result = await serverGenerator.generateServer();
 
     if (!result.success) {
       console.error('[DEV] Server generation failed. Fix the error and restart the CLI.');

@@ -1,13 +1,13 @@
-import { createManifest } from '../manifestGenerator/manifestGenerator.js';
+import ManifestGenerator from '../manifestGenerator/manifestGenerator.js';
 import { File } from '../manifestGenerator/types.js';
 import path from 'path';
 import * as fs from 'fs';
+import FileBuilder from '../FileBuilder.js';
 
 type GenerateMiddlewareResult = GenerateMiddlewareSuccess | GenerateMiddlewareFailure;
 
 type GenerateMiddlewareSuccess = {
   success: true;
-  foundMiddleware: string[];
 }
 
 type GenerateMiddlewareFailure = {
@@ -20,70 +20,86 @@ type MiddlewareMappingInfo = {
   import: string
 }
 
-export default async function aggregateMiddleware (sourceDirectory: string, outputPath: string) : Promise<GenerateMiddlewareResult> {
-  const manifest = await createManifest(sourceDirectory, 'middleware');
+export default class MiddlewareAggregator {
+  private sourceDirectory: string;
+  private outputPath: string;
+  private mappings: MiddlewareMappingInfo[];
 
-  if (manifest.endpoints.length === 0) {
-    console.error(`No middleware found in folder: ${sourceDirectory}`);
-    return {
-      success: false
-    };
+  public constructor (sourceDirectory: string, outputPath: string) {
+    this.sourceDirectory = sourceDirectory;
+    this.outputPath = outputPath;
+    this.mappings = [];
   }
 
-  const mappings: MiddlewareMappingInfo[] = [];
+  public async aggregateMiddleware () : Promise<GenerateMiddlewareResult> {
+    const manifestGenerator = new ManifestGenerator(this.sourceDirectory, 'middleware');
+    const manifest = await manifestGenerator.createManifest();
 
-  for (const file of manifest.endpoints) { 
-    mappings.push({
-      middleWareName: getMiddlewareName(file.path),
-      mappedFunctionName: file.config.handlerName,
-      import: mapMiddlewareImport(file, outputPath)
-    });
+    if (manifest.endpoints.length === 0) {
+      console.error(`No middleware found in folder: ${this.sourceDirectory}`);
+      return {
+        success: false
+      };
+    }
+
+    for (const file of manifest.endpoints) { 
+      this.mappings.push({
+        middleWareName: this.getMiddlewareName(file.path),
+        mappedFunctionName: file.config.handlerName,
+        import: this.mapMiddlewareImport(file)
+      });
+    }
+
+    return await this.generateMiddlewareFile();
   }
 
-  return await generateMiddlewareFile(mappings, outputPath);
-}
-
-function mapMiddlewareImport (endpoint: File, outputPath: string) {
-  const routerDir = path.dirname(outputPath);
-  const handlerPath = path.resolve(endpoint.path);
-
-  let relativePath = path.relative(routerDir, handlerPath).replace(/\\/g, '/');
-
-  if (!relativePath.startsWith('.')) relativePath = './' + relativePath;
-
-  if (endpoint.config.isHandlerDefaultExport) {
-    return `import ${endpoint.config.handlerName} from '${relativePath}'`;
-  } else {
-    return `import { middleware as ${endpoint.config.handlerName} } from '${relativePath}'`;
+  public getAvailableMiddleware (requestedMiddleware: string[]) {
+    return requestedMiddleware.filter(m =>this.mappings.some(mapping => mapping.middleWareName === m));
   }
-}
 
-async function generateMiddlewareFile (mappings: MiddlewareMappingInfo[], outputPath: string) : Promise<GenerateMiddlewareResult> {
-  const middlewareFile = 
-  `${mappings.map(m => `${m.import};`).join('\n')}
-  
-const middleware = {
-${mappings.map(m => `  '${m.middleWareName}': ${m.mappedFunctionName}`).join(',\n')}
-};
+  private mapMiddlewareImport (endpoint: File) {
+    const routerDir = path.dirname(this.outputPath);
+    const handlerPath = path.resolve(endpoint.path);
 
-export default middleware;
-  `;
-  try {
-    await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
-    await fs.promises.writeFile(outputPath, middlewareFile, 'utf8');
-    return {
-      success: true,
-      foundMiddleware: mappings.map(m => m.middleWareName)
-    };
-  } catch (err) {
-    console.error('Failure writing middleware aggregation: ', err); 
+    let relativePath = path.relative(routerDir, handlerPath).replace(/\\/g, '/');
 
-    return {
-      success: false
-    };
+    if (!relativePath.startsWith('.')) relativePath = './' + relativePath;
+
+    if (endpoint.config.isHandlerDefaultExport) {
+      return `import ${endpoint.config.handlerName} from '${relativePath}'`;
+    } else {
+      return `import { middleware as ${endpoint.config.handlerName} } from '${relativePath}'`;
+    }
   }
-}
 
-function getMiddlewareName (filePath: string) {
-  return path.basename(filePath).replace('.js', '').replace('.ts', '');
+  private async generateMiddlewareFile () : Promise<GenerateMiddlewareResult> {
+    const middlewareFile = FileBuilder
+      .buildFile()
+      .addLine(this.mappings.map(m => `${m.import};`).join('\n'))
+      .addEmptyLine()
+      .addLine(`const middleware = {
+${this.mappings.map(m => `  '${m.middleWareName}': ${m.mappedFunctionName}`).join(',\n')}
+};`)
+      .addEmptyLine()
+      .addLine('export default middleware;')
+      .getFile();
+
+    try {
+      await fs.promises.mkdir(path.dirname(this.outputPath), { recursive: true });
+      await fs.promises.writeFile(this.outputPath, middlewareFile, 'utf8');
+      return {
+        success: true
+      };
+    } catch (err) {
+      console.error('Failure writing middleware aggregation: ', err); 
+
+      return {
+        success: false
+      };
+    }
+  }
+
+  private getMiddlewareName (filePath: string) {
+    return path.basename(filePath).replace('.js', '').replace('.ts', '');
+  }
 }

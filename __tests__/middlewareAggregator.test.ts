@@ -1,5 +1,5 @@
 import { describe, test, expect, Mock, vi, beforeEach, afterEach } from 'vitest';
-import aggregateMiddleware from '../src/middlewareAggregator/middlewareAggregator';
+import MiddlewareAggregator from '../src/middlewareAggregator/middlewareAggregator';
 import * as fs from 'fs';
 
 describe('middlewareGenerator', () => {
@@ -26,10 +26,11 @@ describe('middlewareGenerator', () => {
     const middlewarePath = `${middlewareBasePath}_${uniqueSuffix}.js`;
     const middlewareSourcePath = '__tests__/middleware';
   
-    const result = await aggregateMiddleware(`./${middlewareSourcePath}`, middlewarePath);
+    const middlewareAggregator = new MiddlewareAggregator(`./${middlewareSourcePath}`, middlewarePath);
+    const result = await middlewareAggregator.aggregateMiddleware();
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.foundMiddleware).toStrictEqual(['testLogger', 'testMiddleware']);
+    expect(middlewareAggregator.getAvailableMiddleware(['testLogger', 'testMiddleware', 'notTestware'])).toStrictEqual(['testLogger', 'testMiddleware']);
   
     const gennedContent = await fs.promises.readFile(middlewarePath, 'utf-8');
     const expectedGennedContent = await fs.promises.readFile('./__tests__/generatedOutputs/middleware.ts', 'utf-8');
@@ -44,8 +45,9 @@ describe('middlewareGenerator', () => {
     const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
     const middlewarePath = `${middlewareBasePath}_${uniqueSuffix}.js`;
     const middlewareSourcePath = '__tests__/no_middleware';
-  
-    const result = await aggregateMiddleware(`./${middlewareSourcePath}`, middlewarePath);
+
+    const middlewareAggregator = new MiddlewareAggregator(`./${middlewareSourcePath}`, middlewarePath);
+    const result = await middlewareAggregator.aggregateMiddleware();
     expect(result.success).toBe(false);
     expect(errorMock).toBeCalledWith(`No middleware found in folder: ./${middlewareSourcePath}`);
   
