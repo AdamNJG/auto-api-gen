@@ -49,7 +49,11 @@ describe('Manifest Generator', () => {
     const manifestGenerator = new ManifestGenerator('./__tests__/test_bff_config_typescript');
     const manifest = await manifestGenerator.createManifest();
 
-    expect(manifest.endpoints).toStrictEqual(bff_test_endpoints_ts);
+    for (const expected of bff_test_endpoints_ts) {
+      expect(manifest.endpoints).toContainEqual(expected);
+    }
+
+    expect(manifest.endpoints.length).toBe(bff_test_endpoints_ts.length);
   });
 });
 
@@ -60,7 +64,7 @@ const bff_test_endpoints: File[] = [
     path: '__tests__/test_bff_config/default/patch.ts',                                                                   
     config: {
       httpMethod: HttpMethod.PATCH,
-      middleware: ['default_middleware'],
+      middleware: ['testLogger', 'testMiddleware'],
       handlerName: 'default_patch',
       isHandlerDefaultExport: true
     }            

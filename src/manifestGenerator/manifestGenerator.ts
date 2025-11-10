@@ -30,7 +30,6 @@ export default class ManifestGenerator {
   }
 
   async createManifest (): Promise<ControllerManifest> {
-    console.log(this.defaultHandlerName);
     if (!exists(this.baseDir)) return { endpoints: [] };
 
     const directoryResult = await readDirectory(this.baseDir);

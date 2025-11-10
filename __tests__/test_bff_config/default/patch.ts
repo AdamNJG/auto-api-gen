@@ -4,5 +4,5 @@ export default function handler (req, res) {
 
 export const config = { 
   httpMethod: 'patch',
-  middleware: ['default_middleware']
+  middleware: ['testLogger', 'testMiddleware']
 };

@@ -51,36 +51,35 @@ describe('endpoint generator', () => {
   });
 
   test('js handlers present with configs, creates valid router with different methods', async () => {
-    await fs.promises.cp('./__tests__/testMiddleware/middleware.ts', './generated/middleware.ts', { recursive: true, force: true });
     const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
     const endpointPath = `${endpointBasePath}_${uniqueSuffix}.js`;
     const testBffPath = '__tests__/test_bff_config';
     const middlewareToAdd = ['testLogger', 'testMiddleware'];
     try {
-      const endpointGenerator = new EndpointGenerator(`./${testBffPath}`, endpointPath, middlewareToAdd, new MiddlewareAggregator('', ''));
+      const middlewareAggregator = new MiddlewareAggregator('./__tests__/middleware', './generated/middleware.ts');
+      await middlewareAggregator.aggregateMiddleware();
+      const endpointGenerator = new EndpointGenerator(`./${testBffPath}`, endpointPath, middlewareToAdd, middlewareAggregator);
       const result = await endpointGenerator.generateEndpoints();
       expect(result.success).toBe(true);
 
       const router = await getRouter(endpointPath);
       if (!router) {
-        throw Error('router undefined');
+        throw Error(`router undefined from: ${endpointPath}`);
       }
 
-      await expectRoute(router, '/default/patch', 'patch', 'this is /default/patch');
+      await expectRoute(router, '/default/patch', 'patch', 'this is /default/patch', {} ,middlewareToAdd);
 
       await expectRoute(router, '/', 'post', 'this is the base route');
 
       await expectRoute(router, '/test', 'put', 'this is /test/');
 
       await expectRoute(router, '/test/test', 'patch', 'this is /test/test');
-
-      for (const middleware of middlewareToAdd) {
-        expectMiddleware(router, middleware);
-      }
-
     } finally {
       await deleteFile(endpointPath);
-      await deleteFile('./generated/middleware.ts');
+      if (fs.existsSync(path.join(process.cwd(), 'generated/middleware.ts'))) {
+        await deleteFile(path.join(process.cwd(), 'generated/middleware.ts'));
+      }
+
     }
   });
 
@@ -214,19 +213,32 @@ async function deleteFile (file: string) {
   await fs.promises.rm(file);
 }
 
-async function expectRoute (router: Router, path: string, method: string, expectedBody: any, urlParameters?: Record<string, string>) {
+async function expectRoute (router: Router, path: string, method: string, expectedBody: any, urlParameters?: Record<string, string>, endpointMiddleware?: string[]) {
   const layer = router.stack.find((l: any) => l.route && l.route.path === path);
   
   expect(layer, `Route with path "${path}" not found`).toBeDefined();
 
   const route = layer!.route as IRoute;
 
-  // Check that the route has the expected method
-  const stackMethod = route.stack[0]?.method?.toLowerCase();
-  expect(stackMethod, `Route "${path}" does not use method "${method}"`).toBe(method.toLowerCase());
+  const methodStack = route.stack.filter((s) => s.method === method.toLowerCase());
 
-  // Call your handler checker
-  await checkHandlerFunction(route.stack[0].handle, expectedBody, urlParameters);
+  expect(methodStack.length > 0,`Route "${path}" does not use method "${method}"`).toBe(true);
+
+  const middlewareNames = methodStack
+    .filter(m => m.name !== 'handler')
+    .map(m => m.name);
+
+  const handler = methodStack
+    .filter(m => m.name === 'handler')[0].handle;
+
+  if (endpointMiddleware && endpointMiddleware.length > 0) {
+    endpointMiddleware.forEach((name) => {
+      expect(middlewareNames.includes(name),
+        `Expected middleware "${name}" not found on route "${path}"`).toBe(true);
+    });
+  }
+
+  await checkHandlerFunction(handler, expectedBody, urlParameters);
 }
 
 async function checkHandlerFunction<T> (fun: (req: Request, res: Response, next: NextFunction) => any, expected: T, urlParameters?: Record<string, string>) {
@@ -242,7 +254,7 @@ async function checkHandlerFunction<T> (fun: (req: Request, res: Response, next:
       body = data;
     }
   } as any;
-  const next = {} as any;
+  const next = ({} as any);
 
   await fun(req, res, next);
 
@@ -251,7 +263,7 @@ async function checkHandlerFunction<T> (fun: (req: Request, res: Response, next:
 }
 
 async function getRouter (outputPath: string): Promise<Router | undefined> {
-  const absPath = path.resolve(outputPath);
+  const absPath = path.resolve(process.cwd(), outputPath);
 
   const fileUrl = pathToFileURL(absPath).href;
   try {
@@ -263,12 +275,4 @@ async function getRouter (outputPath: string): Promise<Router | undefined> {
     console.log(err);
     return undefined;
   }
-}
-
-function expectMiddleware (router: Router, name: string) {
-  const names = router.stack
-    .filter((layer: any) => !layer.route)
-    .map((layer: any) => layer.name);
-
-  expect(names).toContain(name);
 }
