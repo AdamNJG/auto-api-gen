@@ -30,10 +30,13 @@ describe('configLoader tests', async () => {
       fs.mkdirSync(path.join(tempDir, e));
       fs.writeFileSync(path.join(tempDir, e, `autoapi.config.${e}`), configs[e]);
     });
+
+    fs.writeFileSync(path.join(process.cwd(), 'autoapi.config.ts'), configs['ts']);
   });
 
   afterAll(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(path.join(process.cwd(), 'autoapi.config.ts'));
   });
 
   test.each(extensions)(`Config loads for each type of extension: (%s)`,
@@ -52,16 +55,9 @@ describe('configLoader tests', async () => {
     }, 10000);
 
   test(`Config in the base of the directory loads`, async () => {
+    const config = await loadConfig();
 
-    const originalCwd = process.cwd();
-    try {
-      // make ./ to actually be tempdir/ts 
-      process.chdir(path.join(tempDir, 'ts')); 
-      const config = await loadConfig();
-      expect(config).toBeDefined();
-    } finally {
-      process.chdir(originalCwd);
-    }
+    expect(config).toBeDefined();
   });
 
   test(`No config found, returns undefined`, async () => {

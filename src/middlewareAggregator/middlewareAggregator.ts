@@ -57,6 +57,10 @@ export default class MiddlewareAggregator {
     return requestedMiddleware.filter(m =>this.mappings.some(mapping => mapping.middleWareName === m));
   }
 
+  public getMiddlewareOutputPath () { 
+    return this.outputPath;
+  }
+
   private mapMiddlewareImport (endpoint: File) {
     const routerDir = path.dirname(this.outputPath);
     const handlerPath = path.resolve(endpoint.path);

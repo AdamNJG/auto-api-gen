@@ -116,7 +116,7 @@ export default class EndpointGenerator {
 
   private mapMiddlewareImport () { 
     const routerDir = path.dirname(this.outputPath);
-    const middlewarePath = path.resolve('generated/middleware.ts');
+    const middlewarePath = path.resolve(__dirname, this.middlewareAggregator?.getMiddlewareOutputPath() ?? '');
 
     let relativePath = path.relative(routerDir, middlewarePath).replace(/\\/g, '/');
 

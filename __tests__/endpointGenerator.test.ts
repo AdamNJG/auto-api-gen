@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, beforeEach, vi, Mock, beforeAll, afterAll } from 'vitest';
+import { describe, test, expect, afterEach, beforeEach, vi, Mock } from 'vitest';
 import { IRoute, NextFunction, Request, Response, Router } from 'express';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -12,31 +12,20 @@ import { TaggedMiddleware } from '../src/middlewareAggregator/types';
 const endpointBasePath = './endpoints';
 describe('endpoint generator', () => {
   let tempDir: string;
-  let originalCwd: string;
 
   let errorMock: Mock<(...args: any[]) => void>;
   let warnMock: Mock<(...args: any[]) => void>;
   let logMock: Mock<(...args: any[]) => void>;
 
-  beforeAll(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'endpoint-test-'));
-    originalCwd = process.cwd();
-    process.chdir(tempDir); 
-    fs.mkdirSync(path.join(tempDir, 'generated')); 
-  });
-
-  afterAll(() => {
-    process.chdir(originalCwd); 
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
   beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'endpoint-test-'));
     errorMock = vi.spyOn(console, 'error').mockImplementation(() => {});
     warnMock = vi.spyOn(console, 'warn').mockImplementation(() => {});
     logMock = vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
     errorMock.mockRestore();
     warnMock.mockRestore();
     logMock.mockRestore();
@@ -61,16 +50,20 @@ describe('endpoint generator', () => {
 
     await expectRoute(router, '/test/test', 'get', 'this is /test/test');
   });
-
+  
   test('js handlers present with configs, creates valid router with different methods', async () => {
     const endpointPath = getUniqueEndpointPath();
     const testBffPath = await setupFolders('__tests__/test_bff_config');
     const middlewarePath = await setupFolders('./__tests__/middleware');
     const middlewareToAdd = ['testLogger', 'testMiddleware'];
 
-    const middlewareAggregator = new MiddlewareAggregator(middlewarePath, './generated/middleware.ts');
+    errorMock.mockRestore();
+    warnMock.mockRestore();
+    logMock.mockRestore();
+    const middlewareOutputPath = path.join(tempDir, './generated/middleware.ts');
+    const middlewareAggregator = new MiddlewareAggregator(middlewarePath, middlewareOutputPath);
     await middlewareAggregator.aggregateMiddleware();
-    expect(fs.existsSync(path.join(process.cwd(), './generated/middleware.ts'))).toBeTruthy();
+    expect(fs.existsSync(middlewareOutputPath)).toBeTruthy();
 
     const endpointGenerator = new EndpointGenerator(testBffPath, endpointPath, middlewareToAdd, middlewareAggregator);
     const result = await endpointGenerator.generateEndpoints();
@@ -195,15 +188,16 @@ describe('endpoint generator', () => {
     expect(gennedContent).toEqual(expectedGennedContent.replace(/^\/\/\s*@ts-nocheck\s*\n/, ''));
   });
 
-  async function setupFolders (expectedDir: string) : Promise<string> {
-    const newPath = path.join(tempDir, expectedDir);
+  async function setupFolders (sourceDir: string) : Promise<string> {
+    const newPath = path.join(tempDir, path.basename(sourceDir));
 
-    await fs.promises.cp(path.join(originalCwd, expectedDir), newPath, { recursive: true });
+    await fs.promises.cp(path.join(process.cwd(), sourceDir), newPath, { recursive: true });
     return newPath;
   }
-});
 
-const getUniqueEndpointPath = () => path.join(endpointBasePath + '_' + Date.now() + Math.random().toString(36).slice(2) + '.js');
+  let counter = 0;
+  const getUniqueEndpointPath = () => path.join(tempDir, endpointBasePath + '_' + (counter++) + '.ts');
+});
 
 async function expectRoute (router: Router, path: string, method: string, expectedBody: any, urlParameters?: Record<string, string>, endpointMiddleware?: string[]) {
   const layer = router.stack.find((l: any) => l.route && l.route.path === path);
