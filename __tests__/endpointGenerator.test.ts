@@ -67,7 +67,7 @@ describe('endpoint generator', () => {
       expect(result.success).toBe(true);
 
       console.log(`router found: ${fs.existsSync(path.join(process.cwd(), endpointPath))}`);
-      console.log(fs.readFileSync(path.join(process.cwd(), endpointPath)));
+      console.log(fs.readFileSync(path.join(process.cwd(), endpointPath), 'utf-8'));
       
       const router = await getRouter(endpointPath);
       if (!router) {
