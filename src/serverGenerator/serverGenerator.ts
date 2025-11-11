@@ -4,6 +4,8 @@ import { GenerateServerResult, RouterMapping } from './types.js';
 import MiddlewareAggregator from '../middlewareAggregator/middlewareAggregator.js';
 import { makeDirectory, writeFile, exists, readDirectory } from '../fileHelpers.js';
 import EndpointGenerator from '../endpointGenerator/endpointGenerator.js';
+import FileBuilder from '../fileBuilder.js';
+import { file } from 'tmp';
 
 const defaultGenerated = './generated';
 
@@ -55,17 +57,33 @@ export default class ServerGenerator {
     const preRunScriptImports = await this.getPreRunScriptImports(this.config);
     const canAddMiddleware: boolean = foundAppMiddleware.length > 0;
 
-    const index = `${preRunScriptImports.map(e => e + ';\n')}import express from 'express';
-${Object.values(routerMappings).map(r => r.import + ';')}${canAddMiddleware ? `\nimport middleware from './middleware.ts';` : ''}
+    const fileBuilder = FileBuilder.buildFile()
+      .addLines(preRunScriptImports.map(e => e + ';'))
+      .addLine(`import express from 'express';`)
+      .addLines(Object.values(routerMappings).map(r => r.import + ';'));
 
-const app = express();${canAddMiddleware ? `\nconst appMiddleware = [${foundAppMiddleware.map(m => `'${m}'`).join(', ')}];` : ''}
+    if (canAddMiddleware) {
+      fileBuilder.addLine(`import middleware from './middleware.ts';`);
+    }
 
-${Object.entries(routerMappings).map(([key, r]) => `app.use('${key}',${canAddMiddleware ? ' appMiddleware.map(k => middleware[k]),' : ''} ${r.importName});`)}
+    fileBuilder
+      .addEmptyLine()
+      .addLine('const app = express();')
+      .addEmptyLine();
 
-app.listen(${this.config.port}, () => {
+    if (canAddMiddleware) { 
+      fileBuilder
+        .addLine(`const appMiddleware = [${foundAppMiddleware.map(m => `'${m}'`).join(', ')}];`)
+        .addEmptyLine();
+    }
+
+    const index = fileBuilder
+      .addLines(Object.entries(routerMappings).map(([key, r]) => `app.use('${key}',${canAddMiddleware ? ' appMiddleware.map(k => middleware[k]),' : ''} ${r.importName});`))
+      .addEmptyLine()
+      .addLine(`app.listen(${this.config.port}, () => {
   console.log('Example app listening on port ${this.config.port}'); 
-}); 
-  `;
+});`)
+      .getFile();
 
     const writeResult = await writeFile(`${defaultGenerated}/index.ts`, index);
     if (!writeResult.success) {

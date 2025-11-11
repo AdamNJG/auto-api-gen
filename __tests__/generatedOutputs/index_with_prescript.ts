@@ -1,3 +1,4 @@
+import '../__tests__/preRunScripts/doMoreStuff.js';
 import '../__tests__/preRunScripts/doStuff.js';
 import express from 'express';
 import test_bff from './__tests__/test_bff.ts';
