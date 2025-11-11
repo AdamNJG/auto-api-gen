@@ -56,12 +56,18 @@ describe('endpoint generator', () => {
     const testBffPath = '__tests__/test_bff_config';
     const middlewareToAdd = ['testLogger', 'testMiddleware'];
     try {
+      errorMock.mockRestore();
+      warnMock.mockRestore();
+      logMock.mockRestore();
       const middlewareAggregator = new MiddlewareAggregator('./__tests__/middleware', './generated/middleware.ts');
       await middlewareAggregator.aggregateMiddleware();
       const endpointGenerator = new EndpointGenerator(`./${testBffPath}`, endpointPath, middlewareToAdd, middlewareAggregator);
       const result = await endpointGenerator.generateEndpoints();
       expect(result.success).toBe(true);
 
+      console.log(`router found: ${fs.existsSync(path.join(process.cwd(), endpointPath))}`);
+      console.log(fs.readFileSync(path.join(process.cwd(), endpointPath)));
+      
       const router = await getRouter(endpointPath);
       if (!router) {
         throw Error(`router undefined from: ${endpointPath}`);
