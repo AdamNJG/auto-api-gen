@@ -62,13 +62,11 @@ describe('endpoint generator', () => {
       const middlewareAggregator = new MiddlewareAggregator('./__tests__/middleware', './generated/middleware.ts');
       await middlewareAggregator.aggregateMiddleware();
       expect(fs.existsSync(path.join(process.cwd(), './generated/middleware.ts'))).toBeTruthy();
+
       const endpointGenerator = new EndpointGenerator(`./${testBffPath}`, endpointPath, middlewareToAdd, middlewareAggregator);
       const result = await endpointGenerator.generateEndpoints();
       expect(result.success).toBe(true);
 
-      console.log(`router found: ${fs.existsSync(path.join(process.cwd(), endpointPath))}`);
-      console.log(fs.readFileSync(path.join(process.cwd(), endpointPath), 'utf-8'));
-      
       const router = await getRouter(endpointPath);
       if (!router) {
         throw Error(`router undefined from: ${endpointPath}`);
@@ -238,6 +236,7 @@ async function expectRoute (router: Router, path: string, method: string, expect
   const handler = methodStack
     .filter(m => m.name === 'handler')[0].handle;
 
+  console.log(middlewareNames);
   if (endpointMiddleware && endpointMiddleware.length > 0) {
     endpointMiddleware.forEach((name) => {
       expect(middlewareNames.includes(name),
