@@ -5,7 +5,6 @@ import MiddlewareAggregator from '../middlewareAggregator/middlewareAggregator.j
 import { makeDirectory, writeFile, exists, readDirectory } from '../fileHelpers.js';
 import EndpointGenerator from '../endpointGenerator/endpointGenerator.js';
 import FileBuilder from '../fileBuilder.js';
-import { file } from 'tmp';
 
 const defaultGenerated = './generated';
 
@@ -66,10 +65,18 @@ export default class ServerGenerator {
       fileBuilder.addLine(`import middleware from './middleware.ts';`);
     }
 
+    if (this.config.static_assets !== undefined) {
+      fileBuilder.addLine(`import * as path from 'path';`);
+    }
+
     fileBuilder
       .addEmptyLine()
       .addLine('const app = express();')
       .addEmptyLine();
+
+    if (this.config.static_assets !== undefined) {
+      fileBuilder.addLine(`app.use('${this.config.static_assets.route_section}', express.static(path.join(process.cwd(), '${this.config.static_assets.directory}')));`);
+    }
 
     if (canAddMiddleware) { 
       fileBuilder
@@ -151,7 +158,7 @@ export default class ServerGenerator {
       if (!result.success) continue;
 
       console.log(`generated endpoints: ${defaultGenerated}/${apiFolder.directory}.ts`);
-      routerMappings[apiFolder.api_slug] = this.mapRouterImport(apiFolder.directory);
+      routerMappings[apiFolder.route_section] = this.mapRouterImport(apiFolder.directory);
     }
     return routerMappings;
   }

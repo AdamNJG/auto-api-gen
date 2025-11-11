@@ -27,7 +27,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234
     });
@@ -51,11 +51,42 @@ describe('serverGenerator tests', () => {
     }
   });
 
+  test('generates server.js file, checking file structure', async () => {
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        route_section: '/_api'
+      }],
+      port: 1234,
+      static_assets: {
+        directory: 'public',
+        route_section: '/assets'
+      }
+    });
+    const result = await serverGenerator.generateServer();
+    try {    
+      expect(result.success).toBe(true);
+
+      expect(fs.existsSync(path.resolve(cwd(), './generated/index.ts'))).toBeTruthy();
+      expect(logMock).toBeCalledWith(`generated endpoints: ./generated/__tests__/test_bff.ts`);
+      expect(logMock).toBeCalledWith(`generated server entrypoint: ./generated/index.ts`);
+
+      const indexPath = path.resolve(cwd(), './generated/index.ts');
+      const indexContent = await fs.promises.readFile(indexPath, 'utf-8');
+      const expectedIndexContent = await fs.promises.readFile('./__tests__/generatedOutputs/index_with_static_assets.ts', 'utf-8');
+
+      // styker adds @ts-nocheck to generated output, the replace is to bypass equality issues!
+      expect(normalize(indexContent)).toEqual(normalize(expectedIndexContent.replace(/^\/\/\s*@ts-nocheck\s*\n/, '')));
+    } finally {
+      await deleteGeneratedFiles();
+    }
+  });
+
   test('generates server.js file, app middleware included, checking file structure', async () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234,
       middleware_folder: '__tests__/middleware',
@@ -85,7 +116,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234,
       middleware_folder: '__tests__/middleware',
@@ -114,7 +145,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234,
       middleware_folder: '__tests__/no_middleware',
@@ -143,7 +174,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234,
       pre_run_scripts: '__tests__/preRunScripts'
@@ -171,11 +202,11 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       },
       {
         directory: '__tests__/test_bff_config',
-        api_slug: '/_api2'
+        route_section: '/_api2'
       }],
       port: 1234
     });
@@ -203,7 +234,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234,
       pre_run_scripts: '__tests__/preRunScripts'
@@ -231,7 +262,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234,
       pre_run_scripts: '__tests__/no_preRunScripts'
@@ -261,7 +292,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234,
       pre_run_scripts: '__tests__/preRunScripts_empty'
@@ -290,7 +321,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/no_files',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234
     });
@@ -311,7 +342,7 @@ describe('serverGenerator tests', () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
         directory: '__tests__/test_bff',
-        api_slug: '/_api'
+        route_section: '/_api'
       }],
       port: 1234
     });
