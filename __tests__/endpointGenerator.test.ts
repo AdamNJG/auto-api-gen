@@ -61,6 +61,7 @@ describe('endpoint generator', () => {
       logMock.mockRestore();
       const middlewareAggregator = new MiddlewareAggregator('./__tests__/middleware', './generated/middleware.ts');
       await middlewareAggregator.aggregateMiddleware();
+      expect(fs.existsSync(path.join(process.cwd(), './generated/middleware.ts'))).toBeTruthy();
       const endpointGenerator = new EndpointGenerator(`./${testBffPath}`, endpointPath, middlewareToAdd, middlewareAggregator);
       const result = await endpointGenerator.generateEndpoints();
       expect(result.success).toBe(true);
