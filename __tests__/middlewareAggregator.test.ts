@@ -1,6 +1,7 @@
 import { describe, test, expect, Mock, vi, beforeEach, afterEach } from 'vitest';
-import aggregateMiddleware from '../src/middlewareAggregator/middlewareAggregator';
+import MiddlewareAggregator from '../src/middlewareAggregator/middlewareAggregator';
 import * as fs from 'fs';
+import * as fileHelpers from '../src/fileHelpers';
 
 describe('middlewareGenerator', () => {
   const middlewareBasePath = './__tests__/middleware';
@@ -26,10 +27,11 @@ describe('middlewareGenerator', () => {
     const middlewarePath = `${middlewareBasePath}_${uniqueSuffix}.js`;
     const middlewareSourcePath = '__tests__/middleware';
   
-    const result = await aggregateMiddleware(`./${middlewareSourcePath}`, middlewarePath);
+    const middlewareAggregator = new MiddlewareAggregator(`./${middlewareSourcePath}`, middlewarePath);
+    const result = await middlewareAggregator.aggregateMiddleware();
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.foundMiddleware).toStrictEqual(['testLogger', 'testMiddleware']);
+    expect(middlewareAggregator.getAvailableMiddleware(['testLogger', 'testMiddleware', 'notTestware'])).toStrictEqual(['testLogger', 'testMiddleware']);
   
     const gennedContent = await fs.promises.readFile(middlewarePath, 'utf-8');
     const expectedGennedContent = await fs.promises.readFile('./__tests__/generatedOutputs/middleware.ts', 'utf-8');
@@ -44,12 +46,49 @@ describe('middlewareGenerator', () => {
     const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
     const middlewarePath = `${middlewareBasePath}_${uniqueSuffix}.js`;
     const middlewareSourcePath = '__tests__/no_middleware';
-  
-    const result = await aggregateMiddleware(`./${middlewareSourcePath}`, middlewarePath);
+
+    const middlewareAggregator = new MiddlewareAggregator(`./${middlewareSourcePath}`, middlewarePath);
+    const result = await middlewareAggregator.aggregateMiddleware();
     expect(result.success).toBe(false);
     expect(errorMock).toBeCalledWith(`No middleware found in folder: ./${middlewareSourcePath}`);
   
     expect(fs.existsSync(middlewarePath)).toBeFalsy();
+  });
+
+  test('points at middleware folder, write directory failure', async () => {
+    const error: string = 'could not make directory';
+    const makeDirMock = vi.spyOn(fileHelpers, 'makeDirectory').mockResolvedValue({ success: false, error: error });
+
+    const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
+    const middlewarePath = `${middlewareBasePath}_${uniqueSuffix}.js`;
+    const middlewareSourcePath = '__tests__/middleware';
+  
+    const middlewareAggregator = new MiddlewareAggregator(`./${middlewareSourcePath}`, middlewarePath);
+    const result = await middlewareAggregator.aggregateMiddleware();
+    expect(result.success).toBe(false);
+    expect(fs.existsSync(middlewarePath)).toBe(false);
+    expect(errorMock).toBeCalledWith('Failed to make directory: ', error);
+
+    expect(middlewareAggregator.getAvailableMiddleware(['testLogger', 'testMiddleware', 'notTestware'])).toStrictEqual([]);
+    makeDirMock.mockRestore();
+  });
+
+  test('points at middleware folder, write file failure', async () => {
+    const error: string = 'could not write file';
+    const makeDirMock = vi.spyOn(fileHelpers, 'writeFile').mockResolvedValue({ success: false, error: error });
+
+    const uniqueSuffix = Date.now() + Math.random().toString(36).slice(2);
+    const middlewarePath = `${middlewareBasePath}_${uniqueSuffix}.js`;
+    const middlewareSourcePath = '__tests__/middleware';
+  
+    const middlewareAggregator = new MiddlewareAggregator(`./${middlewareSourcePath}`, middlewarePath);
+    const result = await middlewareAggregator.aggregateMiddleware();
+    expect(result.success).toBe(false);
+    expect(fs.existsSync(middlewarePath)).toBe(false);
+    expect(errorMock).toBeCalledWith('Failed to write middleware file: ', error);
+
+    expect(middlewareAggregator.getAvailableMiddleware(['testLogger', 'testMiddleware', 'notTestware'])).toStrictEqual([]);
+    makeDirMock.mockRestore();
   });
 }); 
 

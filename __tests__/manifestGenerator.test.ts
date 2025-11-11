@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, vi, Mock } from 'vitest';
-import { createManifest } from '../src/manifestGenerator/manifestGenerator';
+import ManifestGenerator from '../src/manifestGenerator/manifestGenerator';
 import { File, HttpMethod } from '../src/manifestGenerator/types';
 
 describe('Manifest Generator', () => {
@@ -19,13 +19,16 @@ describe('Manifest Generator', () => {
     logMock.mockRestore();
   });
   test('create manifest using config', async () => {
-    const manifest = await createManifest('./__tests__/test_bff_config');
+    logMock.mockRestore();
+    const manifestGenerator = new ManifestGenerator('./__tests__/test_bff_config');
+    const manifest = await manifestGenerator.createManifest();
 
     expect(manifest.endpoints).toStrictEqual(bff_test_endpoints);
   });
 
   test('create manifest, invalid config, parse failure', async () => {
-    const manifest = await createManifest('./__tests__/test_bff_invalid_config');
+    const manifestGenerator = new ManifestGenerator('./__tests__/test_bff_invalid_config');
+    const manifest = await manifestGenerator.createManifest();
 
     expect(manifest.endpoints).toStrictEqual(bff_invalid_config_endpoints);
     expect(errorMock.mock.calls[0][0]).toContain(`Failed to parse `);
@@ -35,16 +38,22 @@ describe('Manifest Generator', () => {
     const babelMock = vi.spyOn(global as any, 'eval').mockImplementation(() => {
       throw new Error('eval failed!');
     });
-    await createManifest('./__tests__/test_bff_invalid_config');
+    const manifestGenerator = new ManifestGenerator('./__tests__/test_bff_invalid_config');
+    await manifestGenerator.createManifest();
 
     expect(errorMock.mock.calls[0][0]).toContain(`eval failed!`);
     babelMock.mockRestore();
   });
 
   test('create manifest using config - Typescript', async () => {
-    const manifest = await createManifest('./__tests__/test_bff_config_typescript');
+    const manifestGenerator = new ManifestGenerator('./__tests__/test_bff_config_typescript');
+    const manifest = await manifestGenerator.createManifest();
 
-    expect(manifest.endpoints).toStrictEqual(bff_test_endpoints_ts);
+    for (const expected of bff_test_endpoints_ts) {
+      expect(manifest.endpoints).toContainEqual(expected);
+    }
+
+    expect(manifest.endpoints.length).toBe(bff_test_endpoints_ts.length);
   });
 });
 
@@ -55,7 +64,7 @@ const bff_test_endpoints: File[] = [
     path: '__tests__/test_bff_config/default/patch.ts',                                                                   
     config: {
       httpMethod: HttpMethod.PATCH,
-      middleware: [],
+      middleware: ['testLogger', 'testMiddleware'],
       handlerName: 'default_patch',
       isHandlerDefaultExport: true
     }            
@@ -67,13 +76,13 @@ const bff_test_endpoints: File[] = [
     config: {
       httpMethod: HttpMethod.POST,
       middleware: [],
-      handlerName: 'test_bff_config_index',
+      handlerName: 'index',
       isHandlerDefaultExport: false
     }                                                                                           
   },                                                                                                             
   {
     name: 'index.js',
-    route: '/test/',
+    route: '/test',
     path: '__tests__/test_bff_config/test/index.js',                                                                  
     config: {
       httpMethod: HttpMethod.PUT,
@@ -103,7 +112,7 @@ const bff_invalid_config_endpoints: File[] = [
     config: {
       httpMethod: HttpMethod.GET,
       middleware: [],
-      handlerName: 'test_bff_invalid_config_index',
+      handlerName: 'index',
       isHandlerDefaultExport: false
     }
   }
@@ -120,6 +129,17 @@ const bff_test_endpoints_ts: File[] = [
       handlerName: 'default_patch',
       isHandlerDefaultExport: true
     }            
+  },                    
+  {
+    name: '[id].ts',
+    route: '/default/:post/comments/:id',
+    path: '__tests__/test_bff_config_typescript/default/[post]/comments/[id].ts',                                                                   
+    config: {
+      httpMethod: HttpMethod.GET,
+      middleware: [],
+      handlerName: 'default_post_comments_id',
+      isHandlerDefaultExport: true
+    }            
   },                                                           
   {                                                                                                              
     name: 'index.ts',                                                                                            
@@ -128,13 +148,13 @@ const bff_test_endpoints_ts: File[] = [
     config: {
       httpMethod: HttpMethod.POST,
       middleware: [],
-      handlerName: 'test_bff_config_typescript_index',
+      handlerName: 'index',
       isHandlerDefaultExport: false
     }                                                                                           
   },                                                                                                             
   {
     name: 'index.ts',
-    route: '/test/',
+    route: '/test',
     path: '__tests__/test_bff_config_typescript/test/index.ts',                                                                  
     config: {
       httpMethod: HttpMethod.PUT,
@@ -153,5 +173,16 @@ const bff_test_endpoints_ts: File[] = [
       handlerName: 'test_test',
       isHandlerDefaultExport: false
     }            
+  },
+  {
+    name: '[id].ts',
+    route: '/test/:id',
+    path: '__tests__/test_bff_config_typescript/test/[id].ts',                                                                 
+    config: {
+      httpMethod: HttpMethod.GET,
+      middleware: [],
+      handlerName: 'test_id',
+      isHandlerDefaultExport: false
+    }     
   }
 ];

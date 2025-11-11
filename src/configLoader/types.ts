@@ -10,4 +10,5 @@ export type AutoApiConfig = {
 type ApiFolder = {
   directory: string;
   api_slug: string;
+  middleware?: string[];
 }

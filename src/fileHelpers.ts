@@ -60,6 +60,21 @@ export async function readFile (filePath: string) : Promise<FileReaderResult<str
   }
 }
 
+export function readFileSync (filePath: string) : FileReaderResult<string> {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return {
+      success: true,
+      content: content
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: (err instanceof Error ? err.message : String(err))
+    };
+  }
+}
+
 export function exists (filePath: string) : boolean {
   try {
     return fs.existsSync(filePath);
@@ -76,6 +91,21 @@ export async function readDirectory (filePath: string): Promise<FileReaderResult
       content: results
     };
   } catch (err) { 
+    return {
+      success: false,
+      error: (err instanceof Error ? err.message : String(err))
+    };
+  }
+}
+
+export function stat (path: string): FileReaderResult<fs.Stats> {
+  try {
+    const stats = fs.statSync(path);
+    return {
+      success: true,
+      content: stats
+    };
+  } catch (err) {
     return {
       success: false,
       error: (err instanceof Error ? err.message : String(err))

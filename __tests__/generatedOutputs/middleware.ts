@@ -1,9 +1,12 @@
-import middleware_testLogger from './middleware/testLogger.js';
-import { middleware as middleware_testMiddleware } from './middleware/testMiddleware.ts';
-  
+import testLogger from './middleware/testLogger.js';
+import { middleware as testMiddleware } from './middleware/testMiddleware.ts';
+
+testLogger.mwName = 'testLogger';
+testMiddleware.mwName = 'testMiddleware';
+
 const middleware = {
-  'testLogger': middleware_testLogger,
-  'testMiddleware': middleware_testMiddleware
+  'testLogger': testLogger,
+  'testMiddleware': testMiddleware
 };
 
 export default middleware;

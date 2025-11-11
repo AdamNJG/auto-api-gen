@@ -1,11 +1,10 @@
 
 import { describe, test, expect, beforeEach, afterEach, Mock, vi } from 'vitest';
 import * as fs from 'fs';
-import generateServer from '../src/serverGenerator/serverGenerator';
 import path from 'path';
 import { cwd } from 'process';
 import * as fileHelpers from '../src/fileHelpers';
-import { error } from 'console';
+import ServerGenerator from '../src/serverGenerator/serverGenerator';
 
 describe('serverGenerator tests', () => {
   let errorMock: Mock<(...args: any[]) => void>;
@@ -25,7 +24,14 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, checking file structure', async () => {
-    const result = await generateServer('./__tests__/configs/server');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234
+    });
+    const result = await serverGenerator.generateServer();
     try {    
       expect(result.success).toBe(true);
 
@@ -34,7 +40,7 @@ describe('serverGenerator tests', () => {
       expect(logMock).toBeCalledWith(`generated server entrypoint: ./generated/index.ts`);
       expect(errorMock).not.toBeCalledWith('No middleware found in folder: ');
 
-      const indexPath = path.resolve('./generated/index.ts');
+      const indexPath = path.resolve(cwd(), './generated/index.ts');
       const indexContent = await fs.promises.readFile(indexPath, 'utf-8');
       const expectedIndexContent = await fs.promises.readFile('./__tests__/generatedOutputs/index.ts', 'utf-8');
 
@@ -46,7 +52,16 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, app middleware included, checking file structure', async () => {
-    const result = await generateServer('./__tests__/configs/server/middleware');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234,
+      middleware_folder: '__tests__/middleware',
+      app_middleware: ['testLogger', 'testMiddleware']
+    });
+    const result = await serverGenerator.generateServer();
     try {    
       expect(result.success).toBe(true);
 
@@ -67,7 +82,16 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, middelware not found, checking file structure', async () => {
-    const result = await generateServer('./__tests__/configs/server/middleware_notfound');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234,
+      middleware_folder: '__tests__/middleware',
+      app_middleware: ['stuff']
+    });
+    const result = await serverGenerator.generateServer();
     try {    
       expect(result.success).toBe(true);
 
@@ -87,7 +111,16 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, middelware not found, checking file structure', async () => {
-    const result = await generateServer('./__tests__/configs/server/middleware_no_folder');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234,
+      middleware_folder: '__tests__/no_middleware',
+      app_middleware: ['stuff']
+    });
+    const result = await serverGenerator.generateServer();
     try {    
       expect(result.success).toBe(true);
 
@@ -107,7 +140,15 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, middelware not found, checking file structure', async () => {
-    const result = await generateServer('./__tests__/configs/server/prescript');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234,
+      pre_run_scripts: '__tests__/preRunScripts'
+    });
+    const result = await serverGenerator.generateServer();
     try {    
       expect(result.success).toBe(true);
 
@@ -127,7 +168,15 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, prescripts found, checking file structure', async () => {
-    const result = await generateServer('./__tests__/configs/server/prescript');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234,
+      pre_run_scripts: '__tests__/preRunScripts'
+    });
+    const result = await serverGenerator.generateServer();
     try {    
       expect(result.success).toBe(true);
 
@@ -147,7 +196,15 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, prescripts directory not found, checking file structure', async () => {
-    const result = await generateServer('./__tests__/configs/server/prescript_no_folder');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234,
+      pre_run_scripts: '__tests__/no_preRunScripts'
+    });
+    const result = await serverGenerator.generateServer();
     try {    
       expect(result.success).toBe(true);
 
@@ -168,9 +225,16 @@ describe('serverGenerator tests', () => {
   });
 
   test('generates server.js file, prescripts directory is empty, checking file structure', async () => {
-    await fs.promises.mkdir('__tests__/preRunScripts_empty', { recursive: true, force: true });
-    
-    const result = await generateServer('./__tests__/configs/server/prescript_empty_folder');
+    await fs.promises.mkdir('__tests__/preRunScripts_empty', { recursive: true });
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234,
+      pre_run_scripts: '__tests__/preRunScripts_empty'
+    });
+    const result = await serverGenerator.generateServer();
     try {    
       expect(result.success).toBe(true);
 
@@ -190,19 +254,15 @@ describe('serverGenerator tests', () => {
     }
   });
 
-  test('no config file, does not continue to generate the server', async () => {
-    const result = await generateServer('./src');
-    expect(result.success).toBe(false);
-
-    expect(errorMock).toBeCalledWith('No config found, please create an autoapi.config, check the documentation for details');
-
-    expect(fs.existsSync(path.resolve(cwd(), './generated'))).toBeFalsy();
-    expect(fs.existsSync(path.resolve(cwd(), './generated/__tests__/test_bff.js'))).toBeFalsy();
-    expect(fs.existsSync(path.resolve(cwd(), './generated/index.js'))).toBeFalsy();
-  });
-
   test('config file, no handler files, does not continue to generate the server', async () => {
-    const result = await generateServer('./__tests__/configs/server/no_files');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/no_files',
+        api_slug: '/_api'
+      }],
+      port: 1234
+    });
+    const result = await serverGenerator.generateServer();
     expect(result.success).toBe(false);
 
     expect(errorMock).toBeCalledWith(`No valid api files able to be created from the config and file system, exiting creation`);
@@ -216,7 +276,14 @@ describe('serverGenerator tests', () => {
     const error: string = 'could not make directory';
     const makeDirMock = vi.spyOn(fileHelpers, 'makeDirectory').mockResolvedValue({ success: false, error: error });
         
-    const result = await generateServer('./__tests__/configs/server');
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      }],
+      port: 1234
+    });
+    const result = await serverGenerator.generateServer();
     expect(result.success).toBe(false);
 
     expect(errorMock).toBeCalledWith(`Error creating the directory: ./generated: `, error);
@@ -227,6 +294,10 @@ describe('serverGenerator tests', () => {
 
     makeDirMock.mockRestore();
   });
+});
+
+test(' failing as a reminder', () => {
+  // use serverGenerator to sort through the middleware required for each
 });
 
 async function deleteGeneratedFiles () {

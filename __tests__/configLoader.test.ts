@@ -1,8 +1,11 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { loadConfig } from '../src/configLoader/configLoader';
 import * as path from 'path';
+import * as fs from 'fs';
+import os from 'os';
 
-describe('configLoader tests',() => {
+describe('configLoader tests', async () => {
+  let tempDir: string;
 
   const extensions: string[] = [
     'ts',
@@ -12,10 +15,35 @@ describe('configLoader tests',() => {
     'js'
   ];
 
+  const configs: Record<string,string> = {
+    ts: tsConfig,
+    js: jsConfig,
+    cjs: cjsConfig,
+    mjs: jsConfig,
+    json: jsonConfig
+  };
+
+  beforeAll(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'config-test-'));
+
+    extensions.forEach(e => {
+      fs.mkdirSync(path.join(tempDir, e));
+      fs.writeFileSync(path.join(tempDir, e, `autoapi.config.${e}`), configs[e]);
+    });
+
+    fs.writeFileSync(path.join(process.cwd(), 'autoapi.config.ts'), configs['ts']);
+  });
+
+  afterAll(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(path.join(process.cwd(), 'autoapi.config.ts'));
+  });
+
   test.each(extensions)(`Config loads for each type of extension: (%s)`,
     async (item) => {
+      const configPath = path.join(tempDir, item);
 
-      const config = await loadConfig(path.resolve(`./__tests__/configs/${item}`));
+      const config = await loadConfig(configPath);
 
       expect(config).toBeDefined();
       expect(config?.api_folders).toBeDefined();
@@ -23,10 +51,11 @@ describe('configLoader tests',() => {
       expect(config?.api_folders[0].api_slug).toBe('_api');
       expect(config?.api_folders[0].directory).toBe('stuff');
       expect(config?.port).toBe(1234);
+
     }, 10000);
 
   test(`Config in the base of the directory loads`, async () => {
-    const config = await loadConfig(path.resolve());
+    const config = await loadConfig();
 
     expect(config).toBeDefined();
   });
@@ -37,3 +66,42 @@ describe('configLoader tests',() => {
     expect(config).not.toBeDefined();
   });
 });
+
+const tsConfig = `import { AutoApiConfig } from '../../../src/configLoader/types';
+
+export const config: AutoApiConfig = {
+  api_folders: [{
+    directory: 'stuff',
+    api_slug: '_api'
+  }],
+  port: 1234
+}; 
+`;
+
+const jsConfig = `const config = {
+  api_folders: [{
+    directory: 'stuff',
+    api_slug: '_api'
+  }],
+  port: 1234
+}; 
+
+export default config;`;
+
+const cjsConfig = `module.exports = {
+  api_folders: [{
+    directory: 'stuff',
+    api_slug: '_api'
+  }],
+  port: 1234
+};`;
+
+const jsonConfig = `
+{
+  "api_folders": [{
+    "directory": "stuff",
+    "api_slug": "_api"
+  }],
+  "port": 1234
+}
+`;
