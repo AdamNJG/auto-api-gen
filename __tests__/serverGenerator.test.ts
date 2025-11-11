@@ -167,6 +167,38 @@ describe('serverGenerator tests', () => {
     }
   });
 
+  test('generates server.js file, multiple routes, checking file structure', async () => {
+    const serverGenerator = new ServerGenerator({
+      api_folders: [{
+        directory: '__tests__/test_bff',
+        api_slug: '/_api'
+      },
+      {
+        directory: '__tests__/test_bff_config',
+        api_slug: '/_api2'
+      }],
+      port: 1234
+    });
+
+    const result = await serverGenerator.generateServer();
+    try {    
+      expect(result.success).toBe(true);
+
+      expect(fs.existsSync(path.resolve(cwd(), './generated/index.ts'))).toBeTruthy();
+      expect(logMock).toBeCalledWith(`generated endpoints: ./generated/__tests__/test_bff.ts`);
+      expect(logMock).toBeCalledWith(`generated server entrypoint: ./generated/index.ts`);
+
+      const indexPath = path.resolve('./generated/index.ts');
+      const indexContent = await fs.promises.readFile(indexPath, 'utf-8');
+      const expectedIndexContent = await fs.promises.readFile('./__tests__/generatedOutputs/index_with_multiple_routes.ts', 'utf-8');
+
+      // styker adds @ts-nocheck to generated output, the replace is to bypass equality issues!
+      expect(normalize(indexContent)).toEqual(normalize(expectedIndexContent.replace(/^\/\/\s*@ts-nocheck\s*\n/, '')));
+    } finally {
+      await deleteGeneratedFiles();
+    }
+  });
+
   test('generates server.js file, prescripts found, checking file structure', async () => {
     const serverGenerator = new ServerGenerator({
       api_folders: [{
