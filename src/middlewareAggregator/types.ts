@@ -1,3 +1,4 @@
+import { Request, Response, NextFunction } from 'express';
 
 export type Config = {
   httpMethod: HttpMethod;
@@ -18,4 +19,9 @@ export enum HttpMethod {
 
 export type GenerateEndpointsResults = {
   success: boolean;
+}
+
+export interface TaggedMiddleware {
+  (req: Request, res: Response, next: NextFunction): any;
+  mwName?: string;
 }

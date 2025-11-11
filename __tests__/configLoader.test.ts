@@ -2,11 +2,10 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { loadConfig } from '../src/configLoader/configLoader';
 import * as path from 'path';
 import * as fs from 'fs';
-import tmp from 'tmp';
+import os from 'os';
 
 describe('configLoader tests', async () => {
-  const tempDir = tmp.dirSync({ unsafeCleanup: true });
-  tmp.setGracefulCleanup(); 
+  let tempDir: string;
 
   const extensions: string[] = [
     'ts',
@@ -16,40 +15,53 @@ describe('configLoader tests', async () => {
     'js'
   ];
 
+  const configs: Record<string,string> = {
+    ts: tsConfig,
+    js: jsConfig,
+    cjs: cjsConfig,
+    mjs: jsConfig,
+    json: jsonConfig
+  };
+
   beforeAll(() => {
-    extensions.forEach(e => fs.mkdirSync(path.join(tempDir.name, e)));
-    fs.writeFileSync(`${tempDir.name}/ts/autoapi.config.ts`, tsConfig);
-    fs.writeFileSync(`${tempDir.name}/js/autoapi.config.js`, jsConfig);
-    fs.writeFileSync(`${tempDir.name}/cjs/autoapi.config.cjs`, cjsConfig);
-    fs.writeFileSync(`${tempDir.name}/mjs/autoapi.config.mjs`, jsConfig);
-    fs.writeFileSync(`${tempDir.name}/json/autoapi.config.json`, jsonConfig);
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'config-test-'));
+
+    extensions.forEach(e => {
+      fs.mkdirSync(path.join(tempDir, e));
+      fs.writeFileSync(path.join(tempDir, e, `autoapi.config.${e}`), configs[e]);
+    });
   });
 
   afterAll(() => {
-    tempDir.removeCallback();
+    fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
   test.each(extensions)(`Config loads for each type of extension: (%s)`,
     async (item) => {
-      const configPath = path.join(tempDir.name, item);
-      try {
-        const config = await loadConfig(configPath);
+      const configPath = path.join(tempDir, item);
 
-        expect(config).toBeDefined();
-        expect(config?.api_folders).toBeDefined();
-        expect(config?.api_folders).toHaveLength(1);
-        expect(config?.api_folders[0].api_slug).toBe('_api');
-        expect(config?.api_folders[0].directory).toBe('stuff');
-        expect(config?.port).toBe(1234);
-      } finally {
-        fs.rmSync(path.join(configPath, `autoapi.config.${item}`));
-      }
+      const config = await loadConfig(configPath);
+
+      expect(config).toBeDefined();
+      expect(config?.api_folders).toBeDefined();
+      expect(config?.api_folders).toHaveLength(1);
+      expect(config?.api_folders[0].api_slug).toBe('_api');
+      expect(config?.api_folders[0].directory).toBe('stuff');
+      expect(config?.port).toBe(1234);
+
     }, 10000);
 
   test(`Config in the base of the directory loads`, async () => {
-    const config = await loadConfig(path.resolve());
 
-    expect(config).toBeDefined();
+    const originalCwd = process.cwd();
+    try {
+      // make ./ to actually be tempdir/ts 
+      process.chdir(path.join(tempDir, 'ts')); 
+      const config = await loadConfig();
+      expect(config).toBeDefined();
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 
   test(`No config found, returns undefined`, async () => {

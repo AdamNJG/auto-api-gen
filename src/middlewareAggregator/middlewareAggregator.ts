@@ -77,6 +77,8 @@ export default class MiddlewareAggregator {
       .buildFile()
       .addLine(this.mappings.map(m => `${m.import};`).join('\n'))
       .addEmptyLine()
+      .addLines(this.mappings.map(m => `${m.middleWareName}.mwName = '${m.middleWareName}';`))
+      .addEmptyLine()
       .addLine(`const middleware = {
 ${this.mappings.map(m => `  '${m.middleWareName}': ${m.mappedFunctionName}`).join(',\n')}
 };`)
