@@ -27,4 +27,11 @@ export default class FileBuilder {
   public getFile () : string {
     return this.file;
   }
+
+  public when (cond: boolean, fn: (b: FileBuilder) => FileBuilder): FileBuilder {
+    if (cond) {
+      return fn(this);
+    }
+    return this;
+  }
 }
