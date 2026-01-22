@@ -56,35 +56,22 @@ export default class ServerGenerator {
     const preRunScriptImports = await this.getPreRunScriptImports(this.config);
     const canAddMiddleware: boolean = foundAppMiddleware.length > 0;
 
-    const fileBuilder = FileBuilder.buildFile()
+    const index = FileBuilder.buildFile()
       .addLines(preRunScriptImports.map(e => e + ';'))
       .addLine(`import express from 'express';`)
-      .addLines(Object.values(routerMappings).map(r => r.import + ';'));
-
-    if (canAddMiddleware) {
-      fileBuilder.addLine(`import middleware from './middleware.ts';`);
-    }
-
-    if (this.config.static_assets !== undefined) {
-      fileBuilder.addLine(`import * as path from 'path';`);
-    }
-
-    fileBuilder
+      .addLines(Object.values(routerMappings).map(r => r.import + ';'))
+      .when(canAddMiddleware, fb => fb
+        .addLine(`import middleware from './middleware.ts';`))
+      .when(this.config.static_assets !== undefined, fb => fb
+        .addLine(`import * as path from 'path';`))
       .addEmptyLine()
       .addLine('const app = express();')
-      .addEmptyLine();
-
-    if (this.config.static_assets !== undefined) {
-      fileBuilder.addLine(`app.use('${this.config.static_assets.route_section}', express.static(path.join(process.cwd(), '${this.config.static_assets.directory}')));`);
-    }
-
-    if (canAddMiddleware) { 
-      fileBuilder
+      .addEmptyLine()
+      .when(this.config.static_assets !== undefined, fb => fb
+        .addLine(`app.use('${this.config.static_assets?.route_section}', express.static(path.join(process.cwd(), '${this.config.static_assets?.directory}')));`))
+      .when(canAddMiddleware, fb => fb
         .addLine(`const appMiddleware = [${foundAppMiddleware.map(m => `'${m}'`).join(', ')}];`)
-        .addEmptyLine();
-    }
-
-    const index = fileBuilder
+        .addEmptyLine())
       .addLines(Object.entries(routerMappings).map(([key, r]) => `app.use('${key}',${canAddMiddleware ? ' appMiddleware.map(k => middleware[k]),' : ''} ${r.importName});`))
       .addEmptyLine()
       .addLine(`app.listen(${this.config.port}, () => {
